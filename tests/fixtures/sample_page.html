@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Fixture Page</title>
+  <script>
+    window.addEventListener("DOMContentLoaded", () => {
+      setTimeout(() => {
+        document.getElementById("delayed").style.display = "block";
+      }, 300);
+    });
+  </script>
+</head>
+<body>
+  <h1>Fixture Page</h1>
+  <p id="greeting">Hello, world</p>
+
+  <button id="reveal-btn" onclick="document.getElementById('revealed').style.display='block'">Reveal</button>
+  <div id="revealed" style="display:none">Revealed content</div>
+
+  <input id="name-input" type="text" />
+
+  <button id="confirm-btn" onclick="document.getElementById('confirm-result').innerText = window.confirm('Proceed?') ? 'accepted' : 'dismissed'">Confirm</button>
+  <p id="confirm-result"></p>
+
+  <div id="delayed" style="display:none">Delayed content</div>
+</body>
+</html>

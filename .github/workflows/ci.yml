@@ -68,6 +68,9 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements-dev.txt
 
+      - name: Install Playwright browser
+        run: playwright install --with-deps chromium
+
       - name: pytest with coverage
         run: pytest -q --cov=agent --cov=browser --cov=benchmark --cov-report=term-missing --cov-report=xml
 

@@ -1,5 +1,37 @@
 """Milestone 1 spike: I want to know if qwen2.5-coder:14b reliably support Ollama's native
 tool-calling format for a multi-step ReAct-style loop.
+
+This is throwaway. It exists only to de-risk agent/loop.py before it gets
+built for real.
+
+Finding (2026-09-19, Ollama 0.34.1, qwen2.5-coder:14b Q4_K_M): native
+tool-calling does not work. Across 15 trials, the model never once emitted
+Ollama's structured `message.tool_calls` field, and never once wrapped its
+answer in the `<tool_call></tool_call>` tags its own chat template (see
+`ollama show qwen2.5-coder:14b --template`) explicitly instructs it to use,
+even when the tag requirement was repeated directly in the user turn. This
+held regardless of prompt wording, so it looks like a limitation of this
+model/quantization rather than a prompting problem.
+
+What it does reliably: return a well-formed JSON object matching the
+requested tool schema at the start of `content`, just without the wrapper
+tags. So per the plan's own contingency, agent/ollama_client.py should use
+the structured-JSON-output pattern below (call Ollama without relying on
+`tool_calls`, parse `content` as JSON, validate against the tool schema)
+rather than native tool-calling. See extract_tool_call() for the parser,
+proven against both single-turn and multi-turn trials below.
+
+Second finding: when a task description implies several steps up front, the
+model sometimes ignores "call exactly one tool per turn" and emits multiple
+JSON objects back to back on separate lines instead of just the next one.
+The parser below copes with this by decoding only the first JSON object in
+content (json.JSONDecoder().raw_decode) and discarding anything after it,
+rather than requiring the whole string to parse as one JSON value. The real
+agent loop should keep this same defensive parsing rather than assuming the
+model will always emit exactly one object.
+
+Run with the venv active and `ollama serve` already running:
+    python scripts/spike_tool_calling.py
 """
 
 import json

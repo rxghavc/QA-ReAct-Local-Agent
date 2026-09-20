@@ -1,0 +1,1 @@
+{"measured_at": "2026-09-18T19:47:10Z", "commit": "e49883c", "num_runs": 2, "pass_rates": [0.75, 0.6667], "min_pass_rate": 0.6667, "mean_pass_rate": 0.7083, "max_pass_rate": 0.75, "gate_threshold": 0.8, "gate_passed": false}

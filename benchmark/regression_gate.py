@@ -27,6 +27,12 @@ a real browser session against live sites, the same reason
 manual commands in docs/how-to-run.md rather than CI steps. This is a
 tool for that same local workflow: run it after a change you expect
 might move the pass rate, before merging.
+
+Every gate run also appends a line to `benchmark/trend.jsonl` (see
+`benchmark/trend.py`) by default, the plan's separate "regression
+tracking... log the pass-rate trend over time" item: a gate run already
+is the meaningful-change checkpoint that item asked to log against.
+`--no-record` opts an exploratory run out of the permanent record.
 """
 
 from __future__ import annotations
@@ -36,6 +42,7 @@ import json
 import sys
 from pathlib import Path
 
+from benchmark import trend
 from benchmark.runner import per_run_pass_rates, run_suite_repeated
 
 BASELINE_PATH = Path(__file__).parent / "baseline.json"
@@ -97,6 +104,15 @@ if __name__ == "__main__":
         action="store_true",
         help="disable the same-failure routing checkpoint (see benchmark/runner.py)",
     )
+    parser.add_argument(
+        "--no-record",
+        action="store_true",
+        help=(
+            "don't append this run to benchmark/trend.jsonl (see "
+            "benchmark/trend.py), for exploratory measurement that "
+            "shouldn't pollute the permanent trend record"
+        ),
+    )
     args = parser.parse_args()
     if args.repeat < MIN_REPEAT_FOR_GATE:
         parser.error(f"--repeat must be at least {MIN_REPEAT_FOR_GATE}")
@@ -111,4 +127,12 @@ if __name__ == "__main__":
 
     ok, message = check_regression(pass_rates, baseline)
     print(("GATE PASS: " if ok else "GATE FAIL: ") + message)
+
+    if not args.no_record:
+        trend.append_entry(pass_rates, gate_threshold(baseline), ok)
+        print(
+            f"Recorded to {trend.HISTORY_PATH.name} "
+            f"({len(trend.load_entries())} entries total)"
+        )
+
     sys.exit(0 if ok else 1)

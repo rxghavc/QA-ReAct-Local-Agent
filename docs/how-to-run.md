@@ -1,6 +1,6 @@
-# How to run the agent
+# How to run the agent, and how to film the demo
 
-This answers two things that aren't obvious from the code alone: what
+This is a practical companion to the README, written for Milestone 9 (README & demo). It answers two things that aren't obvious from the code alone: what
 you can actually run today, and how to watch the agent work rather than just
 read its trace log afterward.
 
@@ -54,7 +54,7 @@ Headed, for watching or filming:
 
 ```bash
 BROWSER_HEADLESS=false uvicorn browser.server:app --port 8001
-```
+```   
 
 ### 2. Run one ad-hoc task
 
@@ -83,6 +83,11 @@ python -m benchmark.report --last 36    # aggregates the last N logged runs
 Checks all three benchmark sites are reachable first (skips a task rather
 than scoring an outage as a failure), and re-reads every task YAML at the
 start of each pass, so don't edit a task file mid-run.
+
+Runs headless by default (whatever browser service you started in step 1).
+Want to watch the whole suite play out in a real browser window instead of
+just reading the summary afterward? See
+[`docs/watching-the-benchmark-suite.md`](watching-the-benchmark-suite.md).
 
 ### 4. Check for a regression before merging a change
 

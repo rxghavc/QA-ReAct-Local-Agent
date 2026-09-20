@@ -9,8 +9,13 @@ buttons) and ships as the new default; idea 1 (history trimming) ships
 too, but delivered far smaller token savings than predicted below, once
 a live isolation test showed the ~10.5x multiplier this plan is built
 around is mostly the constant tool-schema/system-prompt prefix being
-re-processed every call, not the growing conversation history. Idea 3
-(quantization) is unaffected and still not started.
+re-processed every call, not the growing conversation history. **Idea 3
+(quantization) is also done: see `docs/milestones/quantization-comparison.md`.**
+A Q8_0 side-by-side, after a feasibility check that ruled out fp16
+without downloading it, came back both slower and less reliable than
+the current Q4_K_M, and the specific mechanism this plan hypothesized
+(quantization degrading JSON formatting) never showed up in either
+model. Not shipped; the Q8_0 model was deleted after measuring it.
 
 ## Why this, why now
 

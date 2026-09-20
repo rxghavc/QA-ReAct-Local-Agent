@@ -1,3 +1,5 @@
+"""Tool definitions exposed to the model, and dispatch to the browser service."""
+
 from __future__ import annotations
 
 import os
@@ -130,10 +132,26 @@ TOOLS: list[dict] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "ask_clarification",
+            "description": (
+                "End the task to ask the user a question, when the "
+                "instruction itself is ambiguous and could reasonably mean "
+                "more than one thing. Not for a task that is merely hard"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {"question": {"type": "string"}},
+                "required": ["question"],
+            },
+        },
+    },
 ]
 
-# report_done/report_blocked are terminal signals handled by the loop itself,
-# not browser actions, so they have no entry here.
+# report_done/report_blocked/ask_clarification are terminal signals handled by
+# the loop itself, not browser actions, so they have no entry here.
 _BROWSER_ENDPOINTS: dict[str, tuple[str, str]] = {
     "navigate": ("POST", "/navigate"),
     "click": ("POST", "/click"),

@@ -1,4 +1,11 @@
-"""Thin wrapper around Ollama's /api/chat endpoint."""
+"""Thin wrapper around Ollama's /api/chat endpoint.
+
+The Milestone 1 spike (scripts/spike_tool_calling.py) found that
+qwen2.5-coder:14b never emits Ollama's native `message.tool_calls`, but
+reliably returns a well-formed JSON tool call in `content` instead. This
+module implements the structured-JSON-output fallback that finding calls
+for, rather than trusting `tool_calls`.
+"""
 
 from __future__ import annotations
 
@@ -12,7 +19,12 @@ OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
 PLANNER_MODEL = "qwen2.5-coder:14b"
 
 _TOOL_CALL_TAG_RE = re.compile(r"<tool_call>(.*?)</tool_call>", re.DOTALL)
-_CODE_FENCE_RE = re.compile(r"^```(?:json)?\s*(.*?)\s*```$", re.DOTALL)
+# Only the *opening* fence is matched. An earlier version required the
+# closing fence too, and a live run produced an unterminated fence
+# (```json, a complete JSON object, then nothing), which left the
+# backticks in place and failed the whole step. raw_decode already stops
+# after the first JSON value, so a trailing fence needs no handling.
+_CODE_FENCE_OPEN_RE = re.compile(r"^`{3,}[ \t]*(?:json)?[ \t]*\r?\n?", re.IGNORECASE)
 
 
 def ollama_chat(
@@ -42,10 +54,15 @@ def extract_tool_call(message: dict, tool_names: set[str]) -> dict | None:
     well-formed object is taken (json.JSONDecoder().raw_decode), matching
     the parser proven in scripts/spike_tool_calling.py.
 
-    Also strips a ```json ... ``` markdown fence around the object. The
-    spike never hit this (it only ever saw bare or <tool_call>-wrapped
-    JSON), but the live Milestone 3 loop did on its first real run, so the
-    fallback parser needs to be defensive about it too.
+    Also strips a leading ```json markdown fence. The spike never hit this
+    (it only ever saw bare or <tool_call>-wrapped JSON), but the live
+    Milestone 3 loop did on its first real run, and Milestone 8's first
+    full-suite run then produced an *unterminated* fence that the
+    closing-fence-requiring version of this parser rejected outright,
+    losing two whole tasks to "no parseable tool call" on step 0. Each
+    time the model has surprised this parser it has been a new shape of
+    the same surprise, so it strips what it recognises and leans on
+    raw_decode to ignore whatever trails the JSON.
     """
     if message.get("tool_calls"):
         call = message["tool_calls"][0]["function"]
@@ -56,9 +73,7 @@ def extract_tool_call(message: dict, tool_names: set[str]) -> dict | None:
     if match:
         content = match.group(1).strip()
 
-    fence_match = _CODE_FENCE_RE.match(content)
-    if fence_match:
-        content = fence_match.group(1).strip()
+    content = _CODE_FENCE_OPEN_RE.sub("", content, count=1).strip()
 
     try:
         parsed, _ = json.JSONDecoder().raw_decode(content)

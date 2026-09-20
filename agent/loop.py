@@ -15,6 +15,13 @@ is_same_failure): two failures don't have to be byte-for-byte identical
 to count as "the same mistake twice," just judged the same by the 3b
 model. use_routing=False reproduces the Milestone 6 exact-match-only
 behavior, kept for the A/B comparison documented in that milestone.
+
+Per-step timing (model_seconds/tool_seconds) was added for the first
+piece of the observability milestone; see
+docs/milestones/observability-per-step-timing.md. Token accounting
+(prompt_tokens/completion_tokens) below is the third item in that same
+milestone's plan (docs/ai-infra-and-observability.md), reading the two
+count fields Ollama returns alongside `message` on every /api/chat call.
 """
 
 from __future__ import annotations
@@ -70,12 +77,19 @@ def run_task(task: str, max_steps: int = 15, use_routing: bool = True) -> dict:
     routing_checks = 0
     model_seconds_total = 0.0
     tool_seconds_total = 0.0
+    prompt_tokens_total = 0
+    completion_tokens_total = 0
 
     for step in range(max_steps):
         model_start = time.monotonic()
-        message = ollama_chat(PLANNER_MODEL, messages, tools=TOOLS)
+        response = ollama_chat(PLANNER_MODEL, messages, tools=TOOLS)
         model_seconds = time.monotonic() - model_start
         model_seconds_total += model_seconds
+        message = response["message"]
+        prompt_tokens = response.get("prompt_eval_count", 0)
+        completion_tokens = response.get("eval_count", 0)
+        prompt_tokens_total += prompt_tokens
+        completion_tokens_total += completion_tokens
         messages.append(message)
         call = extract_tool_call(message, _TOOL_NAMES)
 
@@ -86,6 +100,8 @@ def run_task(task: str, max_steps: int = 15, use_routing: bool = True) -> dict:
                     "error": "no parseable tool call",
                     "content": message.get("content"),
                     "model_seconds": round(model_seconds, 2),
+                    "prompt_tokens": prompt_tokens,
+                    "completion_tokens": completion_tokens,
                 }
             )
             return {
@@ -96,6 +112,8 @@ def run_task(task: str, max_steps: int = 15, use_routing: bool = True) -> dict:
                 "routing_checks": routing_checks,
                 "model_seconds_total": round(model_seconds_total, 1),
                 "tool_seconds_total": round(tool_seconds_total, 1),
+                "prompt_tokens_total": prompt_tokens_total,
+                "completion_tokens_total": completion_tokens_total,
             }
 
         if call["name"] in TERMINAL_TOOLS:
@@ -104,6 +122,8 @@ def run_task(task: str, max_steps: int = 15, use_routing: bool = True) -> dict:
                     "step": step,
                     "tool_call": call,
                     "model_seconds": round(model_seconds, 2),
+                    "prompt_tokens": prompt_tokens,
+                    "completion_tokens": completion_tokens,
                 }
             )
             outcome = TERMINAL_OUTCOMES[call["name"]]
@@ -122,6 +142,8 @@ def run_task(task: str, max_steps: int = 15, use_routing: bool = True) -> dict:
                 "routing_checks": routing_checks,
                 "model_seconds_total": round(model_seconds_total, 1),
                 "tool_seconds_total": round(tool_seconds_total, 1),
+                "prompt_tokens_total": prompt_tokens_total,
+                "completion_tokens_total": completion_tokens_total,
             }
 
         tool_start = time.monotonic()
@@ -135,6 +157,8 @@ def run_task(task: str, max_steps: int = 15, use_routing: bool = True) -> dict:
                 "result": result,
                 "model_seconds": round(model_seconds, 2),
                 "tool_seconds": round(tool_seconds, 2),
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
             }
         )
         messages.append({"role": "tool", "content": json.dumps(result)})
@@ -175,6 +199,8 @@ def run_task(task: str, max_steps: int = 15, use_routing: bool = True) -> dict:
         "routing_checks": routing_checks,
         "model_seconds_total": round(model_seconds_total, 1),
         "tool_seconds_total": round(tool_seconds_total, 1),
+        "prompt_tokens_total": prompt_tokens_total,
+        "completion_tokens_total": completion_tokens_total,
     }
 
 

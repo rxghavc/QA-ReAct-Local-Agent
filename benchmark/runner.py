@@ -176,6 +176,8 @@ def _skipped_record(task: dict, reason: str, run_index: int) -> dict:
         "routing_checks": 0,
         "model_seconds_total": 0.0,
         "tool_seconds_total": 0.0,
+        "prompt_tokens_total": 0,
+        "completion_tokens_total": 0,
         "final_state": {},
         "trace": [],
     }
@@ -217,6 +219,8 @@ def run_and_score(task: dict, use_routing: bool = True, run_index: int = 0) -> d
         "routing_checks": loop_result.get("routing_checks", 0),
         "model_seconds_total": loop_result.get("model_seconds_total", 0.0),
         "tool_seconds_total": loop_result.get("tool_seconds_total", 0.0),
+        "prompt_tokens_total": loop_result.get("prompt_tokens_total", 0),
+        "completion_tokens_total": loop_result.get("completion_tokens_total", 0),
         "final_state": final_state,
         "trace": loop_result["trace"],
     }

@@ -14,6 +14,13 @@
   <h1>Fixture Page</h1>
   <p id="greeting">Hello, world</p>
 
+  <!-- Regression fixture for Milestone 6: a heading whose text overlaps a
+       button's label, appearing before that button in the DOM, so
+       click(text=...) has something ambiguous to pick the wrong one from. -->
+  <h2>Login Page</h2>
+  <button id="login-btn" onclick="document.getElementById('login-clicked').innerText='clicked'">Login</button>
+  <p id="login-clicked"></p>
+
   <button id="reveal-btn" onclick="document.getElementById('revealed').style.display='block'">Reveal</button>
   <div id="revealed" style="display:none">Revealed content</div>
 

@@ -17,6 +17,8 @@ def test_load_tasks_reads_the_real_task_suite():
         "task_03_saucedemo_add_to_cart",
         "task_04_saucedemo_checkout",
         "task_05_saucedemo_logout",
+        "task_06_dynamic_loading",
+        "task_07_js_confirm_dialog",
     }
     for task in tasks:
         assert "instruction" in task

@@ -1,50 +1,92 @@
-"""System prompts and few-shot examples for the planner and router models."""
+"""ReAct orchestration loop: reason -> act -> observe."""
 
 from __future__ import annotations
 
+import json
 
-def system_prompt(instruction: str, tools: list[dict]) -> str:
-    """Build the planner's system prompt.
+from agent.ollama_client import PLANNER_MODEL, extract_tool_call, ollama_chat
+from agent.prompts import system_prompt
+from agent.tools import TOOLS, execute_tool
 
-    qwen2.5-coder:14b doesn't reliably use Ollama's native tool-calling
-    format (see scripts/spike_tool_calling.py), so this spells out the
-    expected JSON shape directly rather than relying only on the `tools`
-    parameter passed alongside it.
-    """
-    tool_lines = []
-    for tool in tools:
-        fn = tool["function"]
-        params = ", ".join(fn["parameters"].get("properties", {}))
-        tool_lines.append(f"- {fn['name']}({params}): {fn['description']}")
+TERMINAL_TOOLS = {"report_done", "report_blocked"}
+_TOOL_NAMES = {tool["function"]["name"] for tool in TOOLS}
 
-    return (
-        "You are a web automation agent. You can only interact with the page "
-        "through the tools listed below. Respond with exactly one tool call "
-        'per turn, as a single JSON object: {"name": "<tool_name>", '
-        '"arguments": {...}}. Do not wrap it in markdown and do not add '
-        "commentary outside the JSON object.\n\n"
-        f"Task: {instruction}\n\n"
-        "Available tools:\n" + "\n".join(tool_lines) + "\n\n"
-        "When the task is complete, call report_done with a summary. If you "
-        "determine the task cannot be completed, call report_blocked with a "
-        "reason instead of guessing or repeating an action that already "
-        "failed.\n\n"
-        "A few things to keep in mind:\n"
-        "- If a tool call fails (success: false), don't repeat the exact "
-        "same action unchanged, it will most likely fail the same way "
-        "again. Try a genuinely different approach: if a CSS selector "
-        "didn't match anything, try matching by visible text instead (most "
-        "tools accept a `text` argument as an alternative to `selector`), "
-        "or call get_page_state to re-orient yourself before continuing.\n"
-        "- A JavaScript dialog (alert/confirm/prompt) fires the moment the "
-        "action that triggers it happens. If a task involves one, call "
-        "handle_dialog to set how it should be answered BEFORE performing "
-        "the action that opens it, not after.\n"
-        "- A tool call reporting success does not always mean the task "
-        "actually progressed, for example clicking the wrong element "
-        "usually still counts as a successful click. Before calling "
-        "report_done, check for real evidence the expected outcome "
-        "actually happened (with extract_text or get_page_state), rather "
-        "than assuming a click did what you intended just because it "
-        "didn't error."
+
+def run_task(task: str, max_steps: int = 15) -> dict:
+    messages = [
+        {"role": "system", "content": system_prompt(task, TOOLS)},
+        {"role": "user", "content": task},
+    ]
+    trace: list[dict] = []
+    previous_failed_call: dict | None = None
+    consecutive_failed_calls = 0
+
+    for step in range(max_steps):
+        message = ollama_chat(PLANNER_MODEL, messages, tools=TOOLS)
+        messages.append(message)
+        call = extract_tool_call(message, _TOOL_NAMES)
+
+        if call is None:
+            trace.append(
+                {
+                    "step": step,
+                    "error": "no parseable tool call",
+                    "content": message.get("content"),
+                }
+            )
+            return {"outcome": "stuck", "steps": step + 1, "trace": trace}
+
+        if call["name"] in TERMINAL_TOOLS:
+            trace.append({"step": step, "tool_call": call})
+            outcome = "done" if call["name"] == "report_done" else "blocked"
+            summary = call["arguments"].get("summary") or call["arguments"].get(
+                "reason"
+            )
+            return {
+                "outcome": outcome,
+                "summary": summary,
+                "steps": step + 1,
+                "trace": trace,
+            }
+
+        result = execute_tool(call)
+        trace.append({"step": step, "tool_call": call, "result": result})
+        messages.append({"role": "tool", "content": json.dumps(result)})
+
+        if result.get("success") is False and call == previous_failed_call:
+            consecutive_failed_calls += 1
+        elif result.get("success") is False:
+            previous_failed_call = call
+            consecutive_failed_calls = 1
+        else:
+            previous_failed_call = None
+            consecutive_failed_calls = 0
+
+        if consecutive_failed_calls == 2:
+            trace.append(
+                {
+                    "step": step,
+                    "stuck_nudge": True,
+                    "content": "The same tool call failed repeatedly. Try a different approach.",
+                }
+            )
+            messages.append(
+                {
+                    "role": "user",
+                    "content": "The same tool call failed repeatedly. Try a different approach.",
+                }
+            )
+            consecutive_failed_calls = 0
+
+    return {"outcome": "max_steps", "steps": max_steps, "trace": trace}
+
+
+if __name__ == "__main__":
+    # Hardcoded Tier-1 task: basic navigation + form login, checked manually
+    # by reading the trace below rather than a scorer.
+    result = run_task(
+        "Go to https://the-internet.herokuapp.com/login, log in with "
+        "username 'tomsmith' and password 'SuperSecretPassword!', and "
+        "report done once you see the logged-in confirmation message."
     )
+    print(json.dumps(result, indent=2, default=str))

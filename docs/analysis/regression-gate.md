@@ -1,4 +1,4 @@
-# Observability, part 4: a regression gate sized to the measured noise band
+# Regression gate
 
 ## What prompted this
 

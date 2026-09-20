@@ -6,7 +6,7 @@ This grounds the next piece of work (observability and serving-infra hardening, 
 
 Ollama is a thin, developer-friendly wrapper around `llama.cpp`. That lineage explains both why it was the right call for this project and exactly where it would stop being the right call.
 
-**What it optimizes for:** a single machine, a single user, "just works" model management (`ollama pull`, `ollama run`), and GGUF-quantized weights, which is why `qwen2.5-coder:14b` fits in 9GB instead of the ~28GB fp16 would need. That matches this project's actual constraint (24GB unified memory, one task running at a time) exactly.
+**What it optimizes for:** a single machine, a single user, "just works" model management (`ollama pull`, `ollama run`), and GGUF-quantized weights, which is why `qwen2.5-coder:14b` fits in 9GB instead of the ~28GB fp16 would need. That matches this project's actual setup: the model is assumed to be running locally on the same machine as the agent, with the project developed on an M4 MacBook with 24GB of unified memory and one task running at a time. A 16GB machine can still work, but it will be noticeably slower and the benchmark runs will take longer.
 
 **What it doesn't do, and why that's a real boundary, not a hypothetical one:**
 
@@ -16,7 +16,7 @@ Ollama is a thin, developer-friendly wrapper around `llama.cpp`. That lineage ex
 
 ## What real eval/observability infra has that this project doesn't yet
 
-`benchmark/` is already a small, correct instance of the pattern production agent-eval platforms (LangSmith, Braintrust, Arize Phoenix) are built around, not a toy: ground truth checked programmatically rather than LLM-judged, self-report accuracy tracked as its own calibration metric, and `--repeat N` reporting a spread instead of a single point estimate because this suite has genuine run-to-run variance (see [Benchmark trustworthiness](milestones/benchmark-trustworthiness.md)). The gap is specifically in per-run diagnostic depth: right now a run is scored pass/fail plus a self-report string and a flat wall-clock time, and that's not enough to answer "why" cheaply.
+`benchmark/` is already a small, correct instance of the pattern production agent-eval platforms (LangSmith, Braintrust, Arize Phoenix) are built around, not a toy: ground truth checked programmatically rather than LLM-judged, self-report accuracy tracked as its own calibration metric, and `--repeat N` reporting a spread instead of a single point estimate because this suite has genuine run-to-run variance (see [Benchmark trustworthiness](../analysis/benchmark-trustworthiness.md)). The gap is specifically in per-run diagnostic depth: right now a run is scored pass/fail plus a self-report string and a flat wall-clock time, and that's not enough to answer "why" cheaply.
 
 Proposed additions, ordered by cheapest-to-add and most-directly-connected to this project's own already-open questions:
 

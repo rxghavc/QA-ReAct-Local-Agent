@@ -1,8 +1,8 @@
-# Fixes before Milestone 9: report_done semantics and a real ask_clarification trigger
+# Report semantics and clarification
 
-## What prompted this
+## Why this was fixed
 
-Milestone 8 left two agreed fixes and one open question, all diagnosed already, none of it guessed at:
+This work addressed a concrete problem in the agent loop: the project had a semantic mismatch around `report_done` and `report_blocked`, and the clarification trigger was being declared but never meaningfully used. The fixes were driven by real task failures, not by abstract prompt theory.
 
 1. `task_11_impossible_login` was stuck at 0/3. The agent accurately narrated the login failure and then called `report_done` anyway, a tool-semantics mismatch, not a hallucination.
 2. `task_10_invalid_login_rejected`'s success check asserted a DOM fact saucedemo produces unconditionally for that username, so it passed 3/3 whether or not the agent ever looked at the error, testing nothing about Tier 4's stated purpose.

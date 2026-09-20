@@ -1,8 +1,10 @@
-# Context and observation-payload optimization: a real bug and a real correction
+# Context and observation-payload optimization
 
-## What prompted this
+## Why this was measured
 
-`docs/context-optimization-plan.md` scoped two ideas, prioritized and meant to be measured separately: trim old tool-result payloads out of message history (the higher-priority one, aimed directly at Milestone 10 part 3's measured ~10.5x prompt-cost multiplier), and shrink the observation payload itself (second, gated on real payload-size data that didn't exist yet). Both were implemented together on one branch at the user's request. That turned out to matter: measuring them together is exactly what surfaced that the first idea's expected win mostly wasn't there, for a reason worth explaining rather than burying.
+The optimization plan scoped two ideas to be tested separately: trim older tool-result payloads from message history, and shrink the observation payload itself. The first was meant to address the measured prompt-cost multiplier from the earlier observability work; the second depended on actual payload-size data that did not yet exist.
+
+Both were implemented together on one branch, and that proved useful: measuring them together exposed that the expected gain from history trimming was much smaller than the original estimate suggested. The follow-up analysis was important because it revealed the real bottleneck rather than just the headline number.
 
 ## What changed
 
@@ -21,7 +23,7 @@ partial trim (keep_last=4):            min 75%, max 92%, mean 83% pass rate
                                         avg 11,374 prompt / 174 completion tokens per run
 ```
 
-Pass rate held (no regression either way, both inside the suite's known noise band, and both *above* the historical 58/75/92% baseline this suite has been measured at since PR #13 — the clickable fix's own doing, addressed below). **Token savings from trimming were real but small: ~6.5% overall, and on `task_04` (the longest task, where the effect should be largest) a same-code, same-batch comparison showed no measurable difference at all** (29,367 baseline vs. 29,657 trimmed, well inside run-to-run noise).
+Pass rate held (no regression either way, both inside the suite's known noise band, and both *above* the historical 58/75/92% baseline this suite has been measured at since PR #13, the clickable fix's own doing, addressed below). **Token savings from trimming were real but small: ~6.5% overall, and on `task_04` (the longest task, where the effect should be largest) a same-code, same-batch comparison showed no measurable difference at all** (29,367 baseline vs. 29,657 trimmed, well inside run-to-run noise).
 
 That result didn't match what `docs/context-optimization-plan.md` predicted, so it got the same treatment the routing spike and the environment_flakiness false positive got: don't trust the number, find the mechanism. A direct isolation test told the real story:
 
@@ -30,14 +32,14 @@ ollama_chat(..., tools=TOOLS):   prompt_eval_count = 1674
 ollama_chat(..., tools=[]):      prompt_eval_count = 1085
 ```
 
-**The tool schema alone costs ~589 tokens, resent identically on every single call regardless of conversation history. Combined with the system prompt and task text (~1085 tokens, also constant), a ~1674-token prefix is being fully re-processed on all 13-15 calls of a typical task, every time** — roughly 21,000+ tokens per task from the *constant* part alone, dwarfing the ~1,000-1,500 tokens the conversation actually grows by across all those same steps. History trimming only touches the growing part. Once the clickable fix had already shrunk what each tool result contains, there was barely anything left in the growing part to trim, which is exactly why the token-savings measurement came back flat on the task where it mattered most.
+**The tool schema alone costs ~589 tokens, resent identically on every single call regardless of conversation history. Combined with the system prompt and task text (~1085 tokens, also constant), a ~1674-token prefix is being fully re-processed on all 13-15 calls of a typical task, every time**, roughly 21,000+ tokens per task from the *constant* part alone, dwarfing the ~1,000-1,500 tokens the conversation actually grows by across all those same steps. History trimming only touches the growing part. Once the clickable fix had already shrunk what each tool result contains, there was barely anything left in the growing part to trim, which is exactly why the token-savings measurement came back flat on the task where it mattered most.
 
-**This means the original ~10.5x multiplier (Milestone 10 part 3) was never really about the size of the resent history. It's about Ollama re-processing the same constant prefix from scratch on every call, because it does not reuse the shared prefix's KV-cache between calls** — precisely the limitation `docs/ai-infra-and-observability.md` already named ("Limited prefix/KV-cache reuse... SGLang's RadixAttention and vLLM's automatic prefix caching exist specifically to make that free"), now backed by a direct measurement instead of an architectural guess. Fixing that for real means a different serving engine, which the plan already treats as a deliberate, documented tradeoff for this project's scope (iteration speed and zero ops burden over throughput), not something to chase from the application layer.
+**This means the original ~10.5x multiplier (Milestone 10 part 3) was never really about the size of the resent history. It's about Ollama re-processing the same constant prefix from scratch on every call, because it does not reuse the shared prefix's KV-cache between calls** , precisely the limitation `docs/ai-infra-and-observability.md` already named ("Limited prefix/KV-cache reuse... SGLang's RadixAttention and vLLM's automatic prefix caching exist specifically to make that free"), now backed by a direct measurement instead of an architectural guess. Fixing that for real means a different serving engine, which the plan already treats as a deliberate, documented tradeoff for this project's scope (iteration speed and zero ops burden over throughput), not something to chase from the application layer.
 
 ## What this establishes
 
 - **The clickable-visibility fix ships as the new default, unconditionally.** It's a correctness fix (removing misleading, not-currently-actionable information from the model's observation), not a lossy tradeoff, and it measured as a net improvement, not just a non-regression.
-- **History trimming ships too, but as an honest opt-in** (`history_trim="none"` by default), not the default. It's free — no pass-rate cost, no new failure surface, fully tested — but its real measured benefit here is much smaller than the plan assumed, and saying so plainly is more useful than shipping it as a headline win it didn't earn. It would matter more on a task whose tool results carry heavier payloads than this suite's pages do post-fix (e.g. a large `extract_text` result), which is a real, different condition than what this suite currently exercises.
+- **History trimming ships too, but as an honest opt-in** (`history_trim="none"` by default), not the default. It's free , no pass-rate cost, no new failure surface, fully tested , but its real measured benefit here is much smaller than the plan assumed, and saying so plainly is more useful than shipping it as a headline win it didn't earn. It would matter more on a task whose tool results carry heavier payloads than this suite's pages do post-fix (e.g. a large `extract_text` result), which is a real, different condition than what this suite currently exercises.
 - **A speculative, mechanism-first optimization plan can be wrong about *where* a measured cost comes from, even when the top-line number is right.** The 10.5x multiplier was real; the assumption that message-history size was the reason for it wasn't. This is the same class of lesson Milestone 7's 3b spike and the environment_flakiness false positive already taught from different angles: verify the mechanism, not just the headline number, before building around it.
 
 ## What's next

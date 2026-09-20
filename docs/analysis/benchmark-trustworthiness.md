@@ -1,8 +1,8 @@
-# Benchmark trustworthiness: two fixes before Milestone 8
+# Benchmark trustworthiness
 
-## What prompted this
+## Why this mattered
 
-Milestone 7 surfaced two problems with the benchmark itself, neither of them about the agent, and Milestone 8's metrics report would have silently inherited both. Fixing them first, in their own PR, was the point: a metrics report built on top of an untrustworthy measurement is worse than no report at all, because it looks authoritative.
+The benchmark had two issues that were not caused by the agent itself: some tasks were being scored during site outages, and a single run was being treated like a trustworthy measurement. Fixing both before publishing a project-wide report was the right move, because a metrics summary built on bad data is worse than no summary at all.
 
 ## Problem 1: an unreachable site scores as an agent failure
 

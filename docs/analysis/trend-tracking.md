@@ -1,8 +1,8 @@
-# Regression tracking over time
+# Trend tracking
 
-## What prompted this
+## Why the trend log exists
 
-The original plan's "Regression tracking" item, separate from the regression gate itself (Milestone 10 part 4): "re-run the full suite on every meaningful code change and log the pass-rate trend over time... turns the benchmark into a lightweight CI for the agent itself." The gate already answers "did this specific change regress anything," a point-in-time yes/no against a fixed baseline; this answers a different question a single gate run can't: how has the suite actually moved across many measurements. `logs/` can't answer that on its own either, it's gitignored and gets pruned/rotated locally, so nothing about it survives across machines or time by default.
+The regression gate answers a single question: did this specific change cross the threshold? The trend log answers a different one: how has the suite moved over many measurements over time. A benchmark can be biased by one noisy run, so the project needed a durable, low-overhead record of repeated gate results rather than relying on memory or on ephemeral local logs.
 
 ## What changed
 

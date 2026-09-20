@@ -1,10 +1,10 @@
-# Observability, part 2: a failure taxonomy
+# Failure taxonomy
 
-## What prompted this
+## Why this exists
 
-The plan's post-MVP list has always said to categorize why tasks fail (selector drift, hallucinated action, context overflow, premature give-up, timeout) rather than just reporting an aggregate pass rate, and to fix the largest bucket first. `docs/ai-infra-and-observability.md` named this as the second piece of the observability milestone, and specified the method explicitly: read real failed runs by hand first to find out what actually happens, then write rules for exactly those patterns, the same discipline Milestone 7 already learned the hard way when a 3b classifier validated on tidy hand-written fixtures got every real activation wrong.
+The project needed a way to explain why tasks failed instead of only reporting a pass/fail aggregate. The method was explicit: read real failed runs by hand first, identify the actual failure modes, and only then write rules to classify them. This follows the same pattern the project used elsewhere after a false start: a classifier trained on tidy fixtures was not trusted until it had been checked against real traces.
 
-So that's what this did. `logs/` had accumulated 238 task runs across every milestone and fix in this project's history, 63 of them failures. Every one of those 63 was read (task, outcome, self-report, errors, trace shape) before a single classification rule was written.
+`logs/` contains the full run history for the project. Across the recorded milestone runs, 63 were failures, and each one was inspected before any classification rule was added.
 
 ## What the real failures actually looked like
 

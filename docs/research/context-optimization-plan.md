@@ -1,7 +1,7 @@
 # Context and observation-payload optimization plan
 
 This was a planning doc; ideas 1 and 2 below are now built and measured.
-**See `docs/milestones/context-optimization.md` for the outcome, kept
+**See [../analysis/context-optimization.md](../analysis/context-optimization.md) for the outcome, kept
 here for the record since the actual finding corrects a real assumption
 in this plan, not just confirms it:** idea 2 (the observation payload)
 turned up a genuine bug (saucedemo's hidden nav menu crowding out real
@@ -10,7 +10,7 @@ too, but delivered far smaller token savings than predicted below, once
 a live isolation test showed the ~10.5x multiplier this plan is built
 around is mostly the constant tool-schema/system-prompt prefix being
 re-processed every call, not the growing conversation history. **Idea 3
-(quantization) is also done: see `docs/milestones/quantization-comparison.md`.**
+(quantization) is also done: see [../analysis/quantization-comparison.md](../analysis/quantization-comparison.md).**
 A Q8_0 side-by-side, after a feasibility check that ruled out fp16
 without downloading it, came back both slower and less reliable than
 the current Q4_K_M, and the specific mechanism this plan hypothesized
@@ -69,7 +69,7 @@ touches an earlier one again.
 **Chosen mechanism: deterministic code, not a model-generated summary.**
 This follows the project's own already-established finding
 (`agent/routing.py`, Milestone 7): where a structural transform can do
-the job, a model call is strictly worse here — more cost, a new
+the job, a model call is strictly worse here , more cost, a new
 hallucination surface, and (per the 3b spike) this class of model is
 worse at "judge/summarize this" tasks than plain code is. The same
 reasoning applies to "should an LLM summarize the history": don't add
@@ -94,9 +94,9 @@ N (how many recent steps stay untouched) is a real open variable, not
 assumed: start with N=3-4 per the original suggestion, but the suite
 itself, not a guess, should decide it.
 
-**The real design question — how much history can be dropped before the
+**The real design question , how much history can be dropped before the
 model loses what it needs to self-correct or track multi-step
-progress — gets answered by running the existing suite, not by
+progress , gets answered by running the existing suite, not by
 reasoning about it in advance.** Scope: implement trimming as a
 parameter (e.g. a `history_trim: Literal["none", "partial", "full"]`
 argument threaded through `run_task`, or a small pluggable
@@ -130,7 +130,7 @@ repeated visible text.
 **First step before touching code: measure the real current payload
 size on the suite's actual pages** (saucedemo's 6-product inventory
 page, cart, two checkout steps; the-internet's pages; books.toscrape's
-paginated table; demoqa's forms) — how many characters does a typical
+paginated table; demoqa's forms) , how many characters does a typical
 `_summary()` call return today, and how much of that 8-item cap is
 usually hit versus mostly-empty. This project doesn't have that number
 yet, so no cap should be picked before it exists.
@@ -151,7 +151,7 @@ heading/clickable text to some character cap; dedupe exact-text repeats
 `MAX_SUMMARY_ITEMS` only if the real size data shows most pages are well
 under 8 items already, meaning the cap isn't actually load-bearing.
 **Explicitly out of scope for a first pass:** diffing against the
-previous call to send only changed elements — that reintroduces the
+previous call to send only changed elements , that reintroduces the
 kind of state-tracking complexity idea 1 is deliberately avoiding by
 using a pure function instead of a model call, and doubles the number of
 moving parts being measured at once.
@@ -166,14 +166,14 @@ number move" discipline the failure taxonomy itself was built on.
 **The claim to test**, from `docs/ai-infra-and-observability.md`:
 `qwen2.5-coder:14b` runs at whatever Ollama's default quant is (almost
 certainly Q4_K_M), and 4-bit quantization degrades structured-output
-reliability before fluent prose — a plausible, never-attributed
+reliability before fluent prose , a plausible, never-attributed
 contributor to the three distinct malformed-JSON shapes this project has
 already hit across Milestones 1, 3, and 8, versus the chat-template
 issue Milestone 1 already diagnosed as the primary cause.
 
 **Before running anything**: check which quantization tags actually
-exist for `qwen2.5-coder:14b` in Ollama's library — don't assume a Q8
-tag is pullable without checking — and check the real VRAM cost against
+exist for `qwen2.5-coder:14b` in Ollama's library , don't assume a Q8
+tag is pullable without checking , and check the real VRAM cost against
 the documented 24GB unified-memory constraint. The plan's own scale-down
 decision (24b → 14b) was made specifically to leave headroom for the
 browser/Docker/OS stack; a jump toward Q8 (roughly double the current
@@ -182,9 +182,9 @@ and that's a feasibility check, not an assumption, before any comparison
 is worth running.
 
 **If it fits**: same harness as ideas 1 and 2 (`--repeat 3`, pass rate,
-regression gate), plus the one metric this idea specifically targets —
+regression gate), plus the one metric this idea specifically targets ,
 `unparseable_model_output` count from the failure taxonomy (2/63
-historically) — and the latency side of the tradeoff, since a less-
+historically) , and the latency side of the tradeoff, since a less-
 quantized model is slower per token and model inference already
 dominates cost by ~35x over tool execution (Milestone 10 part 1).
 

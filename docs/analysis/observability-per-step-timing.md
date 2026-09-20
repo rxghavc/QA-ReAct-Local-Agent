@@ -1,8 +1,8 @@
-# Observability, part 1: per-step timing breakdown
+# Per-step timing breakdown
 
-## What prompted this
+## Why this was the first measurement
 
-The plan's post-MVP "Optimization & Evaluation" section has always said the first step is to "break down time-per-step: model inference vs. Playwright action vs. network/wait, find out where time actually goes before optimizing anything." Nothing in this project measured that before now; `wall_clock_seconds` was tracked per whole task, which cannot distinguish a slow model from a slow browser. `docs/ai-infra-and-observability.md` named this as the cheapest, most-likely-to-reshape-everything-else item to do first, specifically because this project's own architecture (resending the full growing conversation history to the model every single step) predicted model inference would dominate, and that was a hypothesis to check, not an assumption to build on.
+The project already knew that wall-clock time alone was not enough to explain performance. It could not tell whether the slow part was model inference, browser automation, or network wait time. The first measurement therefore focused on the per-step split between the model call and the browser action, because the architecture strongly suggested that the model path was the real bottleneck.
 
 ## What changed
 

@@ -1,21 +1,20 @@
-# Milestone write-ups
+# Milestone history
 
-Full, detailed accounts of each completed build milestone (and the fix work between them): what was built, why, how it was verified (with real commands and real output), and what went wrong along the way. Written to be readable by someone with no prior context on this project, not just as a diff summary. `CLAUDE.md`'s Progress Log has the terse status version of the same history, kept there for quick reference rather than repeated here; these are the long version, for when you want the full "what actually happened and why" for a specific milestone or fix.
+These are the project’s real numbered milestones: the major build milestones and the actual project history in order.
 
-- [01: Tool-calling spike](01-tool-calling-spike.md), does the local planner model actually support tool calling, and how that was tested before writing any real agent code.
-- [02: Browser tool layer](02-browser-tool-layer.md), building and proving the Playwright + FastAPI browser control layer, independent of any model.
-- [03: Minimal ReAct loop](03-react-loop.md), wiring the model up to the browser layer for the first time, and the two real bugs the first live run surfaced.
-- [04: Dockerize](04-dockerize.md), getting the agent and browser containers to actually talk to each other, and the one-line networking bug that had to be found first.
-- [05: Task suite and scorer](05-task-suite-scorer.md), building an actual benchmark with a programmatic scorer instead of a human reading a trace, and the two real failures its first run caught.
-- [06: Self-correction and dynamic elements](06-self-correction-dynamic-elements.md), why the originally-planned retry mechanism didn't match the real failures, the prompt fix that did, and the brand-new browser-layer bug that same fix accidentally caused.
-- [07: 3b model routing](07-model-routing.md), how a 3b classifier passed its tests, shipped, and then got every live activation wrong, why the obvious fix was worse, and what five measured prompt strategies said about using a model this small as a judge at all.
-- [08: Tier 4, negative tests and the first metrics report](08-tier4-and-negative-tests.md), the suite reaches twelve tasks and four tiers, and the negative tier scores 0/6: the agent describes failure accurately while signalling success, never notices an ambiguous instruction, and never once calls the tool added for it.
-- [Benchmark trustworthiness: two fixes before Milestone 8](benchmark-trustworthiness.md), a live-site outage scoring as an agent failure, real run-to-run variance, and a filename-collision bug that would have silently corrupted repeated measurements.
-- [Fixes before Milestone 9: report_done semantics and a real ask_clarification trigger](report-semantics-and-clarification.md), why an abstract prompt rule did nothing and a concrete worked example fixed it, and the first-ever (if unreliable) `ask_clarification` call after 36 runs of silence.
-- [Observability, part 1: per-step timing breakdown](observability-per-step-timing.md), timing model inference and tool execution separately for the first time, and the immediate finding that model inference dominates by roughly 35x.
-- [Observability, part 2: a failure taxonomy](failure-taxonomy.md), categorizing 63 real failed runs by hand first, a false-positive rule caught before shipping (a healthy saucedemo page misread as a site outage), and the two plan-suggested categories that turned out to have zero real examples.
-- [Observability, part 3: token/cost accounting per step](token-cost-accounting.md), logging prompt/completion tokens per step, and two live runs turning the plan's "no prefix-cache reuse" hypothesis into a measured ~10x prompt-token cost multiplier.
-- [Observability, part 4: a regression gate sized to the measured noise band](regression-gate.md), why a threshold set at the observed noise floor still flaps, and setting it strictly below instead; deliberately not wired into CI since it needs a live local model and browser.
-- [Context and observation-payload optimization](context-optimization.md), a real bug (saucedemo's hidden nav menu crowding out real buttons out of the observation) and a real correction (history trimming barely helped, because the measured 10x cost multiplier turned out to be the constant tool-schema/system-prompt prefix, not the growing conversation).
-- [Context optimization, idea 3: a Q8 side-by-side, and a negative result](quantization-comparison.md), a feasibility check done without downloading anything large, a confound ruled out before trusting the result, and a live comparison where higher precision was both slower and less reliable, not more.
-- [Regression tracking over time](trend-tracking.md), a committed pass-rate history separate from the gate's own point-in-time check, and what its very first live entry actually caught: a real, reproducible-today hallucinated-success failure, kept in the record rather than quietly re-run away.
+## Core milestone sequence
+
+- [01: Tool-calling spike](01-tool-calling-spike.md)
+- [02: Browser tool layer](02-browser-tool-layer.md)
+- [03: Minimal ReAct loop](03-reAct-loop.md)
+- [04: Dockerize](04-dockerize.md)
+- [05: Task suite and scorer](05-task-suite-scorer.md)
+- [06: Self-correction and dynamic elements](06-self-correction-dynamic-elements.md)
+- [07: 3b model routing](07-model-routing.md)
+- [08: Tier 4, negative tests and the first metrics report](08-tier4-and-negative-tests.md)
+
+## Purpose of this folder
+
+This is the canonical history of the project’s development arc. It is the place to look for the actual milestone progression, the milestones that changed the project, and the major experiments that shaped the architecture.
+
+The supporting notes, learnings, and deeper analysis live in [../analysis/README.md](../analysis/README.md), not here.

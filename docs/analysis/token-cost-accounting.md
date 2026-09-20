@@ -1,8 +1,8 @@
-# Observability, part 3: token/cost accounting per step
+# Token cost accounting
 
-## What prompted this
+## Why this was worth measuring
 
-`docs/ai-infra-and-observability.md`'s third observability item asked for prompt token counts per step, specifically to turn one of its own architectural claims into a measured number rather than a guess: this project resends the whole growing conversation history to `/api/chat` on every step, and Ollama has limited prefix/KV-cache reuse compared to production serving stacks (vLLM, TGI, SGLang), so the doc predicted step 13 of a checkout task re-runs prefill over everything from steps 1-12 all over again, every single step. That was a hypothesis to check, the same way Milestone 10 part 1 treated "model inference dominates tool execution" as one before measuring it.
+The project had a clear architectural suspicion: each step was resending the full growing conversation to the model, and that would make prompt cost grow much faster than the model's own output. The point of this measurement was to turn that suspicion into a real number and check whether the inference cost was being driven by repeated prefix work rather than by the browser or the tool execution itself.
 
 ## What changed
 

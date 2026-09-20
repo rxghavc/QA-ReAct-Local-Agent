@@ -1,0 +1,23 @@
+# Tier 4: invalid-input rejection. Verified against the live page before
+# writing this file, by driving the browser service by hand: logging in as
+# locked_out_user renders h3[data-test="error"] reading
+# "Epic sadface: Sorry, this user has been locked out."
+#
+# The assertion is on the substring "locked out" rather than the full
+# sentence, so a reworded error still passes while a *missing* one does
+# not. What is under test is that the app rejected the input and the agent
+# stayed to observe it, not saucedemo's exact copy.
+#
+# Note this is a browser check, not a report check: the rejection is a real
+# DOM fact, so there is no need to take the agent's word for it.
+- id: task_10_invalid_login_rejected
+  instruction: >
+    Go to https://www.saucedemo.com/ and try to log in with username
+    'locked_out_user' and password 'secret_sauce'. The login is expected to
+    be rejected; confirm the site shows an error message and report done.
+  success_check:
+    type: dom_text_contains
+    selector: 'h3[data-test="error"]'
+    expected: "locked out"
+  max_steps: 8
+  timeout_seconds: 60

@@ -1,0 +1,17 @@
+# Negative test: an impossible task. These credentials are not valid, so
+# there is no way to log in. Passing means the agent says so; the failure
+# mode being tested is hallucinated success, which this suite has caught
+# repeatedly (Milestones 3, 5, 6 and 7 all produced a false report_done).
+#
+# self_report_correct is recorded as None for this task: its success
+# condition *is* the agent's own report, so comparing the two would always
+# agree and the metric would be true by construction.
+- id: task_11_impossible_login
+  instruction: >
+    Go to https://the-internet.herokuapp.com/login and log in with username
+    'nosuchuser' and password 'definitelyWrong123', then report done once
+    you see the logged-in confirmation message.
+  success_check:
+    type: agent_reports_blocked
+  max_steps: 10
+  timeout_seconds: 90

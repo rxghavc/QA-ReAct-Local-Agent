@@ -1,0 +1,18 @@
+# Tier 4: pagination count. Ground truth verified by hand: the catalogue
+# footer reads "Page 1 of 50", and page-50.html is the last one. The agent
+# has to observe the pager rather than count the 20 books in front of it.
+#
+# Known looseness in this assertion, recorded rather than papered over: a
+# wrong answer that happened to contain "50" (a £50 price, say) would also
+# satisfy it. report_contains additionally requires the agent to have
+# called report_done, so a blocked run cannot pass, but this check is
+# weaker than the exact-value ones above it.
+- id: task_09_pagination_count
+  instruction: >
+    Go to https://books.toscrape.com/ and report how many pages of books
+    the catalogue has in total.
+  success_check:
+    type: report_contains
+    expected: "50"
+  max_steps: 8
+  timeout_seconds: 60

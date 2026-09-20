@@ -46,6 +46,34 @@ def test_falls_back_to_markdown_fenced_json_content():
     }
 
 
+def test_falls_back_to_json_in_an_unterminated_markdown_fence():
+    """Regression from Milestone 8's first full-suite run: the model opened
+    a ```json fence, emitted a complete object, and never closed the fence.
+    The parser required the closing fence, so it rejected the whole thing
+    and two tasks died on step 0 with "no parseable tool call". Content is
+    the exact string from logs/task_03_saucedemo_add_to_cart (2026-09-17)."""
+    message = {
+        "content": (
+            '```json\n{"name": "navigate", "arguments": '
+            '{"url": "https://www.saucedemo.com/"}}'
+        )
+    }
+
+    assert extract_tool_call(message, TOOL_NAMES) == {
+        "name": "navigate",
+        "arguments": {"url": "https://www.saucedemo.com/"},
+    }
+
+
+def test_falls_back_to_json_in_a_fence_with_no_language_tag():
+    message = {"content": '```\n{"name": "click", "arguments": {"text": "Go"}}'}
+
+    assert extract_tool_call(message, TOOL_NAMES) == {
+        "name": "click",
+        "arguments": {"text": "Go"},
+    }
+
+
 def test_takes_only_first_json_object_when_model_front_loads_several():
     content = (
         '{"name": "navigate", "arguments": {"url": "https://x.test"}}\n'

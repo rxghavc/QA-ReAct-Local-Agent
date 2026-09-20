@@ -28,6 +28,8 @@ from collections import defaultdict
 from datetime import UTC, datetime
 from pathlib import Path
 
+from benchmark.failure_taxonomy import classify_failure
+
 LOGS_DIR = Path(__file__).parent.parent / "logs"
 
 EMPTY_REPORT: dict = {
@@ -41,6 +43,7 @@ EMPTY_REPORT: dict = {
     "avg_model_seconds": None,
     "avg_tool_seconds": None,
     "tasks": [],
+    "failures": [],
 }
 
 
@@ -124,6 +127,18 @@ def build_report(logs_dir: Path | str = LOGS_DIR, last: int | None = None) -> di
     # excluded from the denominator rather than counted as wrong.
     judged = [r for r in scored if r.get("self_report_correct") is not None]
     correct = sum(1 for r in judged if r["self_report_correct"])
+
+    failure_counts: dict[str, int] = defaultdict(int)
+    for record in scored:
+        if record["passed"] is False:
+            failure_counts[classify_failure(record)] += 1
+    failures = [
+        {"category": category, "count": count}
+        for category, count in sorted(
+            failure_counts.items(), key=lambda item: item[1], reverse=True
+        )
+    ]
+
     return {
         "logs": len(records),
         "scored": len(scored),
@@ -139,6 +154,7 @@ def build_report(logs_dir: Path | str = LOGS_DIR, last: int | None = None) -> di
             sum(r.get("tool_seconds_total", 0) for r in scored) / len(scored), 1
         ),
         "tasks": tasks,
+        "failures": failures,
     }
 
 
@@ -207,3 +223,7 @@ if __name__ == "__main__":
                 "property of the agent,\nnot noise to average away: a single "
                 "run of this suite does not support a conclusion."
             )
+        if report["failures"]:
+            print("\nFailure taxonomy (fix the largest bucket first):")
+            for failure in report["failures"]:
+                print(f"  {failure['category']}: {failure['count']}")

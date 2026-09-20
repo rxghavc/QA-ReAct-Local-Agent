@@ -604,4 +604,5 @@ def test_build_report_with_no_logs(tmp_path):
         "avg_model_seconds": None,
         "avg_tool_seconds": None,
         "tasks": [],
+        "failures": [],
     }

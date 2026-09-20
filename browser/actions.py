@@ -16,6 +16,9 @@ from playwright.async_api import Error as PlaywrightError
 
 MAX_SUMMARY_ITEMS = 8
 DEFAULT_ACTION_TIMEOUT_MS = 5000
+INTERACTIVE_SELECTOR = (
+    "button, a, input[type=submit], input[type=button], [role=button]"
+)
 
 
 class BrowserSession:
@@ -75,7 +78,18 @@ class BrowserSession:
         if selector:
             locator = self.page.locator(selector)
         elif text:
-            locator = self.page.get_by_text(text, exact=False)
+            # Matching by text is meant for "click the button/link labeled
+            # X", so prefer an actual clickable element containing that
+            # text over any element with matching text (e.g. a heading).
+            # Milestone 6 found the-internet.herokuapp.com/login has a
+            # "Login Page" heading before the "Login" submit button, so a
+            # bare get_by_text(text).first clicked the heading instead.
+            interactive = self.page.locator(INTERACTIVE_SELECTOR).filter(has_text=text)
+            locator = (
+                interactive
+                if await interactive.count() > 0
+                else self.page.get_by_text(text, exact=False)
+            )
         else:
             return {"success": False, "error": "click requires a selector or text"}
         try:

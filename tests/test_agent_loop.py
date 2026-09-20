@@ -84,7 +84,7 @@ def test_run_task_does_not_nudge_on_a_single_failure_or_on_success(monkeypatch):
     assert not any(step.get("stuck_nudge") for step in result["trace"])
 
 
-def test_run_task_does_not_nudge_when_failures_alternate_between_different_calls(
+def test_run_task_does_not_nudge_when_the_router_says_failures_are_different(
     monkeypatch,
 ):
     calls = [
@@ -96,10 +96,87 @@ def test_run_task_does_not_nudge_when_failures_alternate_between_different_calls
     monkeypatch.setattr(
         loop, "execute_tool", lambda call: {"success": False, "error": "no match"}
     )
+    monkeypatch.setattr(loop, "is_same_failure", lambda pc, pe, cc, ce: False)
 
     result = loop.run_task("do a thing", max_steps=3)
 
     assert not any(step.get("stuck_nudge") for step in result["trace"])
+
+
+def test_run_task_nudges_via_routing_when_the_router_says_failures_are_the_same(
+    monkeypatch,
+):
+    calls = [
+        _json_message("click", {"selector": ".btn_primary:first-child"}),
+        _json_message("click", {"selector": ".inventory_item"}),
+    ]
+    monkeypatch.setattr(loop, "ollama_chat", lambda *a, **k: calls.pop(0))
+    monkeypatch.setattr(
+        loop, "execute_tool", lambda call: {"success": False, "error": "no match"}
+    )
+    router_calls = []
+    monkeypatch.setattr(
+        loop,
+        "is_same_failure",
+        lambda pc, pe, cc, ce: router_calls.append((pc, cc)) or True,
+    )
+
+    result = loop.run_task("do a thing", max_steps=2)
+
+    assert any(step.get("stuck_nudge") for step in result["trace"])
+    assert len(router_calls) == 1
+    assert result["routing_checks"] == 1
+    assert result["routing_enabled"] is True
+
+
+def test_run_task_nudges_on_the_real_checkout_failure_without_mocking_routing(
+    monkeypatch,
+):
+    """End to end through the real agent.routing.is_same_failure, on the
+    exact pair that the rejected llama3.2:3b classifier got wrong during
+    the 2026-09-17 benchmark run: two clicks on the same checkout button
+    differing only in capitalisation. Exact-match stuck detection can
+    never catch this, because no two attempts are identical."""
+    calls = [
+        _json_message("click", {"text": "Checkout"}),
+        _json_message("click", {"text": "CHECKOUT"}),
+    ]
+    monkeypatch.setattr(loop, "ollama_chat", lambda *a, **k: calls.pop(0))
+    monkeypatch.setattr(
+        loop,
+        "execute_tool",
+        lambda call: {
+            "success": False,
+            "error": f"no clickable element matched text={call['arguments']['text']!r}",
+        },
+    )
+
+    result = loop.run_task("complete checkout", max_steps=2)
+
+    assert any(step.get("stuck_nudge") for step in result["trace"])
+    assert result["routing_checks"] == 1
+
+
+def test_run_task_never_calls_the_router_when_routing_is_disabled(monkeypatch):
+    calls = [
+        _json_message("click", {"selector": "#a"}),
+        _json_message("click", {"selector": "#b"}),
+    ]
+    monkeypatch.setattr(loop, "ollama_chat", lambda *a, **k: calls.pop(0))
+    monkeypatch.setattr(
+        loop, "execute_tool", lambda call: {"success": False, "error": "no match"}
+    )
+
+    def fail_if_called(pc, pe, cc, ce):
+        raise AssertionError("is_same_failure should not be called when routing is off")
+
+    monkeypatch.setattr(loop, "is_same_failure", fail_if_called)
+
+    result = loop.run_task("do a thing", max_steps=2, use_routing=False)
+
+    assert not any(step.get("stuck_nudge") for step in result["trace"])
+    assert result["routing_enabled"] is False
+    assert result["routing_checks"] == 0
 
 
 def test_run_task_hits_max_steps_without_a_terminal_call(monkeypatch):

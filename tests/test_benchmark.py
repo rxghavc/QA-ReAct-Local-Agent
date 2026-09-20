@@ -67,7 +67,13 @@ def test_run_and_score_writes_a_log_and_uses_the_final_browser_state(
     monkeypatch.setattr(
         runner,
         "run_task",
-        lambda instruction, max_steps: {"outcome": "done", "steps": 3, "trace": []},
+        lambda instruction, max_steps, use_routing: {
+            "outcome": "done",
+            "steps": 3,
+            "trace": [],
+            "routing_enabled": use_routing,
+            "routing_checks": 0,
+        },
     )
 
     def fake_execute_tool(call):
@@ -98,7 +104,13 @@ def test_run_and_score_flags_a_false_report_done(monkeypatch, tmp_path):
     monkeypatch.setattr(
         runner,
         "run_task",
-        lambda instruction, max_steps: {"outcome": "done", "steps": 2, "trace": []},
+        lambda instruction, max_steps, use_routing: {
+            "outcome": "done",
+            "steps": 2,
+            "trace": [],
+            "routing_enabled": use_routing,
+            "routing_checks": 0,
+        },
     )
     monkeypatch.setattr(
         runner,

@@ -3,6 +3,7 @@ browser layers mocked out so these don't need a live model or browser.
 """
 
 import json
+import time
 
 from agent import loop
 
@@ -60,6 +61,42 @@ def test_run_task_reaches_report_done(monkeypatch):
     assert result["summary"] == "done it"
     assert result["steps"] == 2
     assert len(result["trace"]) == 2
+
+
+def test_run_task_tracks_model_and_tool_time_separately(monkeypatch):
+    """The observability plan (docs/ai-infra-and-observability.md) needs to
+    tell model inference time apart from tool execution time. A deliberate
+    sleep on each side, well clear of scheduling jitter, proves the two
+    totals are tracking their own side and not double-counting or swapping."""
+    responses = [
+        _json_message("navigate", {"url": "https://x.test"}),
+        _json_message("report_done", {"summary": "done it"}),
+    ]
+
+    def slow_chat(*_a, **_k):
+        time.sleep(0.2)
+        return responses.pop(0)
+
+    def slow_tool(_call):
+        time.sleep(0.1)
+        return {"success": True, "title": "X"}
+
+    monkeypatch.setattr(loop, "ollama_chat", slow_chat)
+    monkeypatch.setattr(loop, "execute_tool", slow_tool)
+
+    result = loop.run_task("do a thing", max_steps=5)
+
+    # Two model calls (navigate's, then report_done's) vs one tool call
+    # (navigate's; report_done is terminal and never reaches execute_tool).
+    assert result["model_seconds_total"] >= 0.4
+    assert result["tool_seconds_total"] >= 0.1
+    assert result["tool_seconds_total"] < result["model_seconds_total"]
+
+    navigate_step, report_done_step = result["trace"]
+    assert navigate_step["model_seconds"] > 0
+    assert navigate_step["tool_seconds"] > 0
+    assert report_done_step["model_seconds"] > 0
+    assert "tool_seconds" not in report_done_step
 
 
 def test_run_task_reaches_report_blocked(monkeypatch):

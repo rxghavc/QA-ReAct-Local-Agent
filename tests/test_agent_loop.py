@@ -11,6 +11,39 @@ def _json_message(name: str, arguments: dict) -> dict:
     return {"content": json.dumps({"name": name, "arguments": arguments})}
 
 
+def test_run_task_ends_with_needs_clarification_on_ask_clarification(monkeypatch):
+    """The ambiguous-instruction negative test needs its own outcome:
+    "this could mean two things" is a genuinely different answer from
+    "I tried and could not", and collapsing it into blocked would make
+    that task unscoreable without keyword-sniffing the reason."""
+    monkeypatch.setattr(
+        loop,
+        "ollama_chat",
+        lambda *a, **k: _json_message(
+            "ask_clarification", {"question": "Best by rating or by price?"}
+        ),
+    )
+
+    def fail_if_called(call):
+        raise AssertionError("a terminal tool must not be sent to the browser")
+
+    monkeypatch.setattr(loop, "execute_tool", fail_if_called)
+
+    result = loop.run_task("add the best book", max_steps=5)
+
+    assert result["outcome"] == "needs_clarification"
+    assert result["summary"] == "Best by rating or by price?"
+    assert result["steps"] == 1
+
+
+def test_every_terminal_tool_maps_to_a_distinct_outcome():
+    """Two terminal tools sharing an outcome would silently merge the
+    negative tiers into one unscoreable bucket."""
+    outcomes = list(loop.TERMINAL_OUTCOMES.values())
+    assert len(set(outcomes)) == len(outcomes)
+    assert loop.TERMINAL_TOOLS == set(loop.TERMINAL_OUTCOMES)
+
+
 def test_run_task_reaches_report_done(monkeypatch):
     responses = [
         _json_message("navigate", {"url": "https://x.test"}),

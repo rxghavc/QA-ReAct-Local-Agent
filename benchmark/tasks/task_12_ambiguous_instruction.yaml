@@ -1,0 +1,17 @@
+# Negative test: an ambiguous instruction. "The best book" is undefined on
+# this catalogue, which sorts by nothing in particular and carries star
+# ratings where many books tie at five stars, so best-by-rating,
+# best-by-price and best-by-position are all defensible readings. Passing
+# means asking which was meant, via the ask_clarification tool added in
+# Milestone 8, rather than silently picking one and declaring success.
+#
+# The tool exists precisely so this is scoreable without keyword-sniffing a
+# blocked reason: "this could mean two things" is a genuinely different
+# answer from "I tried and could not".
+- id: task_12_ambiguous_instruction
+  instruction: >
+    Go to https://books.toscrape.com/ and add the best book to the basket.
+  success_check:
+    type: agent_asks_for_clarification
+  max_steps: 10
+  timeout_seconds: 90

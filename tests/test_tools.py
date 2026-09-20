@@ -3,7 +3,7 @@
 import httpx
 import pytest
 
-from agent import tools
+from agent import loop, tools
 
 
 class FakeResponse:
@@ -76,5 +76,18 @@ def test_execute_tool_returns_failure_dict_when_browser_service_unreachable(
 
 @pytest.mark.parametrize("tool_name", [t["function"]["name"] for t in tools.TOOLS])
 def test_every_declared_tool_is_either_dispatchable_or_terminal(tool_name):
-    terminal = {"report_done", "report_blocked"}
-    assert tool_name in tools._BROWSER_ENDPOINTS or tool_name in terminal
+    """The terminal set is imported rather than restated, so declaring a
+    tool the loop doesn't handle fails here instead of silently reaching
+    the model as an option that does nothing."""
+    assert tool_name in tools._BROWSER_ENDPOINTS or tool_name in loop.TERMINAL_TOOLS
+
+
+def test_no_tool_is_both_dispatchable_and_terminal():
+    assert not (set(tools._BROWSER_ENDPOINTS) & loop.TERMINAL_TOOLS)
+
+
+def test_every_terminal_tool_is_declared_to_the_model():
+    """The mirror of the above: a terminal outcome the loop can produce but
+    that the model was never told about is unreachable."""
+    declared = {t["function"]["name"] for t in tools.TOOLS}
+    assert loop.TERMINAL_TOOLS <= declared

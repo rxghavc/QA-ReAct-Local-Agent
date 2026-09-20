@@ -1,6 +1,7 @@
 """Unit tests for benchmark/runner.py and benchmark/report.py."""
 
 import json
+import os
 
 import pytest
 
@@ -19,14 +20,34 @@ def test_load_tasks_reads_the_real_task_suite():
         "task_05_saucedemo_logout",
         "task_06_dynamic_loading",
         "task_07_js_confirm_dialog",
+        "task_08_table_extraction",
+        "task_09_pagination_count",
+        "task_10_invalid_login_rejected",
+        "task_11_impossible_login",
+        "task_12_ambiguous_instruction",
     }
-    for task in tasks:
+    assert len(tasks) == len(task_ids), "duplicate task id in the suite"
+
+
+def test_every_task_uses_a_check_type_the_scorer_understands():
+    """Derived from the scorer rather than restated, so a typo in a task
+    YAML fails here instead of part-way through a live run."""
+    for task in runner.load_tasks():
         assert "instruction" in task
-        assert task["success_check"]["type"] in {
-            "url_contains",
-            "url_equals",
-            "dom_text_contains",
-        }
+        check = task["success_check"]
+        assert check["type"] in runner.KNOWN_CHECK_TYPES, task["id"]
+        if check["type"] in runner.CHECK_TYPES_NEEDING_EXPECTED:
+            assert check.get("expected") is not None, task["id"]
+        if check["type"] == "dom_text_contains":
+            assert check.get("selector"), task["id"]
+
+
+def test_the_suite_covers_every_check_type_the_scorer_supports():
+    """Milestone 8's point: the tiers now exercise extraction and the
+    negative tests, not just navigation. If a check type has no task, it is
+    untested against a real page."""
+    used = {task["success_check"]["type"] for task in runner.load_tasks()}
+    assert used == runner.KNOWN_CHECK_TYPES
 
 
 def test_score_task_url_contains():
@@ -52,6 +73,101 @@ def test_score_task_dom_text_contains():
     assert runner.score_task(task, {"extracted_text": "Products"}) is True
     assert runner.score_task(task, {"extracted_text": None}) is False
     assert runner.score_task(task, {}) is False
+
+
+def test_score_task_report_contains_asserts_the_extracted_value():
+    """The extraction tier's check. It reads the agent's own summary, which
+    every other check type deliberately avoids, but it asserts a specific
+    value scraped by hand beforehand, so it cannot be satisfied by an agent
+    merely claiming success."""
+    task = {
+        "success_check": {
+            "type": "report_contains",
+            "expected": "tconway@earthlink.net",
+        }
+    }
+    assert (
+        runner.score_task(
+            task,
+            {},
+            {"outcome": "done", "summary": "The email is tconway@earthlink.net."},
+        )
+        is True
+    )
+    assert (
+        runner.score_task(
+            task, {}, {"outcome": "done", "summary": "The email is jsmith@gmail.com."}
+        )
+        is False
+    )
+
+
+def test_score_task_report_contains_is_case_insensitive():
+    task = {"success_check": {"type": "report_contains", "expected": "Page 1 of 50"}}
+    assert (
+        runner.score_task(
+            task, {}, {"outcome": "done", "summary": "it said page 1 of 50"}
+        )
+        is True
+    )
+
+
+def test_score_task_report_contains_requires_the_agent_to_have_finished():
+    """A blocked run that happens to mention the answer in its reason has
+    not completed an extraction task."""
+    task = {"success_check": {"type": "report_contains", "expected": "50"}}
+    assert (
+        runner.score_task(
+            task, {}, {"outcome": "blocked", "summary": "I saw 50 but gave up"}
+        )
+        is False
+    )
+
+
+def test_score_task_report_contains_handles_a_missing_summary():
+    task = {"success_check": {"type": "report_contains", "expected": "50"}}
+    assert runner.score_task(task, {}, {"outcome": "done", "summary": None}) is False
+
+
+def test_score_task_agent_reports_blocked_is_the_negative_tier_pass():
+    task = {"success_check": {"type": "agent_reports_blocked"}}
+    assert runner.score_task(task, {}, {"outcome": "blocked"}) is True
+    assert runner.score_task(task, {}, {"outcome": "done"}) is False
+    assert runner.score_task(task, {}, {"outcome": "max_steps"}) is False
+
+
+def test_score_task_agent_asks_for_clarification():
+    task = {"success_check": {"type": "agent_asks_for_clarification"}}
+    assert runner.score_task(task, {}, {"outcome": "needs_clarification"}) is True
+    assert runner.score_task(task, {}, {"outcome": "blocked"}) is False
+
+
+@pytest.mark.parametrize(
+    "check_type",
+    ["report_contains", "agent_reports_blocked", "agent_asks_for_clarification"],
+)
+def test_score_task_raises_when_a_report_check_has_no_agent_report(check_type):
+    task = {"success_check": {"type": check_type, "expected": "x"}}
+    with pytest.raises(ValueError, match="needs the agent's report"):
+        runner.score_task(task, {})
+
+
+@pytest.mark.parametrize(
+    "check_type", ["agent_reports_blocked", "agent_asks_for_clarification"]
+)
+def test_self_report_correct_is_none_for_the_negative_tier(check_type):
+    """Their success condition *is* the agent's report, so the metric would
+    be true by construction. None is more honest than a free 100%."""
+    task = {"success_check": {"type": check_type}}
+    assert runner._self_report_correct(task, passed=True, outcome="blocked") is None
+
+
+def test_self_report_correct_compares_the_claim_to_reality_otherwise():
+    task = {"success_check": {"type": "url_contains", "expected": "/x"}}
+    assert runner._self_report_correct(task, passed=True, outcome="done") is True
+    assert runner._self_report_correct(task, passed=False, outcome="done") is False
+    assert runner._self_report_correct(task, passed=False, outcome="blocked") is True
+    assert runner._self_report_correct(task, passed=True, outcome="blocked") is False
 
 
 def test_score_task_raises_on_unknown_check_type():
@@ -412,12 +528,51 @@ def test_build_report_ignores_unreadable_logs(tmp_path):
     assert result["scored"] == 1
 
 
+def test_build_report_last_keeps_only_the_most_recent_runs(tmp_path):
+    """logs/ accumulates across milestones, and runs made against
+    different code are not comparable, so an all-time average describes no
+    particular version."""
+    for index in range(5):
+        _log(tmp_path, f"t{index}", run_index=index, passed=index >= 3)
+        os.utime(tmp_path / f"t{index}_{index}.json", (1_700_000_000 + index,) * 2)
+
+    result = report.build_report(tmp_path, last=2)
+
+    assert result["scored"] == 2
+    assert {t["task_id"] for t in result["tasks"]} == {"t3", "t4"}
+    assert result["pass_rate"] == 1.0
+
+
+def test_build_report_last_orders_by_write_time_not_filename(tmp_path):
+    """Filenames sort by task id first, so a glob-order "last N" would take
+    N runs of whichever task sorts last. That exact mistake made an earlier
+    verification script in this project read a stale log."""
+    _log(tmp_path, "aaa_written_last", passed=True)
+    _log(tmp_path, "zzz_written_first", passed=False)
+    os.utime(tmp_path / "zzz_written_first_0.json", (1_700_000_000,) * 2)
+    os.utime(tmp_path / "aaa_written_last_0.json", (1_700_000_500,) * 2)
+
+    result = report.build_report(tmp_path, last=1)
+
+    assert [t["task_id"] for t in result["tasks"]] == ["aaa_written_last"]
+
+
+def test_build_report_reports_the_time_span_it_covers(tmp_path):
+    _log(tmp_path, "t", passed=True)
+    os.utime(tmp_path / "t_0.json", (1_700_000_000,) * 2)
+
+    result = report.build_report(tmp_path)
+
+    assert result["span"] == (1_700_000_000, 1_700_000_000)
+
+
 def test_build_report_with_no_logs(tmp_path):
     result = report.build_report(tmp_path)
     assert result == {
         "logs": 0,
         "scored": 0,
         "skipped": 0,
+        "span": None,
         "pass_rate": None,
         "self_report_accuracy": None,
         "avg_steps": None,

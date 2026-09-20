@@ -1,0 +1,16 @@
+# Tier 4: extraction. Ground truth read off the live page by hand before
+# writing this file: the first table's rows are Smith/Bach/Doe/Conway, and
+# Conway's row holds tconway@earthlink.net. Scored with report_contains,
+# because the answer lives in what the agent read rather than in where the
+# browser ended up: a url or dom check on the final page would pass whether
+# or not the agent ever found the right row.
+- id: task_08_table_extraction
+  instruction: >
+    Go to https://the-internet.herokuapp.com/tables. In the first table,
+    find the row for the person whose last name is Conway, and report the
+    email address in that row.
+  success_check:
+    type: report_contains
+    expected: "tconway@earthlink.net"
+  max_steps: 8
+  timeout_seconds: 60

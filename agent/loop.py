@@ -26,7 +26,18 @@ from agent.prompts import system_prompt
 from agent.routing import is_same_failure
 from agent.tools import TOOLS, execute_tool
 
-TERMINAL_TOOLS = {"report_done", "report_blocked"}
+# Each ends the loop with its own outcome rather than being executed
+# against the browser. ask_clarification exists for the ambiguous-instruction
+# negative test (Milestone 8): "this could mean two things, which did you
+# mean?" is a genuinely different answer from "I tried and could not", and
+# collapsing it into report_blocked would make that task unscoreable without
+# keyword-sniffing the blocked reason.
+TERMINAL_OUTCOMES = {
+    "report_done": "done",
+    "report_blocked": "blocked",
+    "ask_clarification": "needs_clarification",
+}
+TERMINAL_TOOLS = set(TERMINAL_OUTCOMES)
 _TOOL_NAMES = {tool["function"]["name"] for tool in TOOLS}
 STUCK_THRESHOLD = 2
 
@@ -79,9 +90,12 @@ def run_task(task: str, max_steps: int = 15, use_routing: bool = True) -> dict:
 
         if call["name"] in TERMINAL_TOOLS:
             trace.append({"step": step, "tool_call": call})
-            outcome = "done" if call["name"] == "report_done" else "blocked"
-            summary = call["arguments"].get("summary") or call["arguments"].get(
-                "reason"
+            outcome = TERMINAL_OUTCOMES[call["name"]]
+            arguments = call["arguments"]
+            summary = (
+                arguments.get("summary")
+                or arguments.get("reason")
+                or arguments.get("question")
             )
             return {
                 "outcome": outcome,

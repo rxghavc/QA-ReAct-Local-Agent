@@ -22,6 +22,12 @@ docs/milestones/observability-per-step-timing.md. Token accounting
 (prompt_tokens/completion_tokens) below is the third item in that same
 milestone's plan (docs/ai-infra-and-observability.md), reading the two
 count fields Ollama returns alongside `message` on every /api/chat call.
+
+`history_trim`/`history_keep_last` (default "none", off) implement the
+first idea in docs/context-optimization-plan.md: collapsing old
+tool-result payloads in `messages` to cut the prompt-token cost the
+token accounting above measured. See agent/history.py for the two
+policies and why this is deterministic code, not a model call.
 """
 
 from __future__ import annotations
@@ -30,6 +36,7 @@ import argparse
 import json
 import time
 
+from agent.history import trim_history
 from agent.ollama_client import PLANNER_MODEL, extract_tool_call, ollama_chat
 from agent.prompts import system_prompt
 from agent.routing import is_same_failure
@@ -65,7 +72,13 @@ def _stuck_nudge(call: dict) -> dict:
     }
 
 
-def run_task(task: str, max_steps: int = 15, use_routing: bool = True) -> dict:
+def run_task(
+    task: str,
+    max_steps: int = 15,
+    use_routing: bool = True,
+    history_trim: str = "none",
+    history_keep_last: int = 4,
+) -> dict:
     messages = [
         {"role": "system", "content": system_prompt(task, TOOLS)},
         {"role": "user", "content": task},
@@ -162,6 +175,7 @@ def run_task(task: str, max_steps: int = 15, use_routing: bool = True) -> dict:
             }
         )
         messages.append({"role": "tool", "content": json.dumps(result)})
+        trim_history(messages, keep_last=history_keep_last, policy=history_trim)
 
         if result.get("success") is False:
             current_error = str(result.get("error", ""))
@@ -222,7 +236,28 @@ if __name__ == "__main__":
         "Defaults to the Milestone 3 hardcoded login task if omitted.",
     )
     parser.add_argument("--max-steps", type=int, default=15)
+    parser.add_argument(
+        "--history-trim",
+        choices=["none", "partial", "full"],
+        default="none",
+        help=(
+            "collapse old tool-result payloads in message history to cut "
+            "prompt-token cost (see docs/context-optimization-plan.md), "
+            "off by default"
+        ),
+    )
+    parser.add_argument(
+        "--history-keep-last",
+        type=int,
+        default=4,
+        help="tool results this recent are never trimmed (default 4)",
+    )
     args = parser.parse_args()
 
-    result = run_task(args.task, max_steps=args.max_steps)
+    result = run_task(
+        args.task,
+        max_steps=args.max_steps,
+        history_trim=args.history_trim,
+        history_keep_last=args.history_keep_last,
+    )
     print(json.dumps(result, indent=2, default=str))

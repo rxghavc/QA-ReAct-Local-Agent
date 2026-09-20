@@ -30,5 +30,16 @@
   <p id="confirm-result"></p>
 
   <div id="delayed" style="display:none">Delayed content</div>
+
+  <!-- Regression fixture, found live on saucedemo while measuring
+       observation-payload sizes for docs/context-optimization-plan.md:
+       an off-canvas nav menu whose links sit under aria-hidden="true"
+       while closed. A raw CSS tag locator (button, a, input[type=submit])
+       still returns their text, silently crowding out real,
+       currently-actionable buttons within MAX_SUMMARY_ITEMS. -->
+  <nav aria-hidden="true">
+    <a href="/about" tabindex="-1">About</a>
+  </nav>
+  <a href="/help">Help</a>
 </body>
 </html>

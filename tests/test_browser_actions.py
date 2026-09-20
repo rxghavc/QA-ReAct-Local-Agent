@@ -26,6 +26,18 @@ async def test_navigate_returns_page_summary(session):
     assert "Fixture Page" in result["headings"]
 
 
+async def test_summary_excludes_aria_hidden_elements_from_clickable(session):
+    """Found live on saucedemo: an off-canvas nav menu's links sit under
+    aria-hidden="true" while closed, but a raw CSS tag locator still
+    returns their text, crowding out real actionable buttons within
+    MAX_SUMMARY_ITEMS (see browser/actions.py's _clickable_texts). The
+    fixture's "About" link is aria-hidden; "Help" is a normal, visible
+    link right next to it."""
+    result = await session.navigate(FIXTURE_URL)
+    assert "About" not in result["clickable"]
+    assert "Help" in result["clickable"]
+
+
 async def test_navigate_reports_failure_for_bad_url(session):
     result = await session.navigate("http://localhost:1/definitely-not-listening")
     assert result["success"] is False

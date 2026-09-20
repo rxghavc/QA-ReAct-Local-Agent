@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import time
 from datetime import UTC, datetime
@@ -72,10 +73,12 @@ def _write_log(record: dict) -> Path:
     return path
 
 
-def run_and_score(task: dict) -> dict:
+def run_and_score(task: dict, use_routing: bool = True) -> dict:
     started_at = time.monotonic()
     loop_result = run_task(
-        task["instruction"], max_steps=task.get("max_steps", DEFAULT_MAX_STEPS)
+        task["instruction"],
+        max_steps=task.get("max_steps", DEFAULT_MAX_STEPS),
+        use_routing=use_routing,
     )
     final_state = _fetch_final_state(task["success_check"])
     passed = score_task(task, final_state)
@@ -88,6 +91,8 @@ def run_and_score(task: dict) -> dict:
         "self_report_correct": self_reported_done == passed,
         "steps": loop_result["steps"],
         "wall_clock_seconds": round(time.monotonic() - started_at, 1),
+        "routing_enabled": loop_result.get("routing_enabled", use_routing),
+        "routing_checks": loop_result.get("routing_checks", 0),
         "final_state": final_state,
         "trace": loop_result["trace"],
     }
@@ -95,15 +100,36 @@ def run_and_score(task: dict) -> dict:
     return record
 
 
-def run_suite(tasks_dir: Path | str = TASKS_DIR) -> list[dict]:
-    return [run_and_score(task) for task in load_tasks(tasks_dir)]
+def run_suite(
+    tasks_dir: Path | str = TASKS_DIR, use_routing: bool = True
+) -> list[dict]:
+    return [
+        run_and_score(task, use_routing=use_routing) for task in load_tasks(tasks_dir)
+    ]
 
 
 if __name__ == "__main__":
-    results = run_suite()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--no-routing",
+        action="store_true",
+        help=(
+            "disable the llama3.2:3b same-failure checkpoint, falling back to "
+            "Milestone 6's exact-match-only stuck detection (used for the A/B "
+            "comparison in docs/milestones/07-model-routing.md)"
+        ),
+    )
+    args = parser.parse_args()
+
+    results = run_suite(use_routing=not args.no_routing)
     passed = sum(1 for r in results if r["passed"])
     self_report_correct = sum(1 for r in results if r["self_report_correct"])
-    print(f"\n{passed}/{len(results)} tasks passed")
+    routing_label = "off" if args.no_routing else "on"
+    total_checks = sum(r["routing_checks"] for r in results)
+    total_wall = round(sum(r["wall_clock_seconds"] for r in results), 1)
+    print(f"\nrouting: {routing_label} ({total_checks} routing checks fired)")
+    print(f"{sum(r['steps'] for r in results)} steps, {total_wall}s wall clock")
+    print(f"{passed}/{len(results)} tasks passed")
     print(
         f"{self_report_correct}/{len(results)} self-reports matched the real outcome\n"
     )
@@ -111,5 +137,6 @@ if __name__ == "__main__":
         marker = "PASS" if r["passed"] else "FAIL"
         print(
             f"  [{marker}] {r['task_id']} "
-            f"(self-report: {r['self_report']}, steps: {r['steps']}, {r['wall_clock_seconds']}s)"
+            f"(self-report: {r['self_report']}, steps: {r['steps']}, "
+            f"{r['wall_clock_seconds']}s, routing checks: {r['routing_checks']})"
         )

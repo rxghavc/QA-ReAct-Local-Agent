@@ -15,7 +15,7 @@ Watch the agent take a plain-language task, drive a real browser, and verify the
 	Your browser does not support embedded video.
 </video>
 
-Can't see the video? [Open the demo video link directly ](https://github.com/user-attachments/assets/dda80a2b-681d-42d4-b85d-0389ba8e9dd0) or [download and view the video directly from /assets/QA-Testing-Agent-Demo.mp4](assets/QA-Testing-Agent-Demo.mp4)
+**Can't see the embedded video**? [Open the demo video link directly](https://github.com/user-attachments/assets/dda80a2b-681d-42d4-b85d-0389ba8e9dd0) *or* [download and view the video directly from /assets/QA-Testing-Agent-Demo.mp4](assets/QA-Testing-Agent-Demo.mp4)
 
 The recording starts by launching the headed browser service and the local agent in two tiled terminal windows. The browser stays open for the full session while each task is pasted into the agent terminal and run against a real Chromium window.
 

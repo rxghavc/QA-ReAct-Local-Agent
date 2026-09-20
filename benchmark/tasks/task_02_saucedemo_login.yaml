@@ -1,0 +1,12 @@
+# Tier 1: basic login, on a different site than task_01, to check the loop
+# generalizes rather than being tuned to one specific page.
+- id: task_02_saucedemo_login
+  instruction: >
+    Go to https://www.saucedemo.com/, log in with username 'standard_user'
+    and password 'secret_sauce', then report done.
+  success_check:
+    type: dom_text_contains
+    selector: ".title"
+    expected: "Products"
+  max_steps: 8
+  timeout_seconds: 60

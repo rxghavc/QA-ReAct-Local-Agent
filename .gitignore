@@ -5,3 +5,5 @@ venv/
 logs/*.json
 .env
 .DS_Store
+.coverage
+coverage.xml

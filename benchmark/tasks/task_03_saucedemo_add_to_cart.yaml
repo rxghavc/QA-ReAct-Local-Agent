@@ -1,0 +1,13 @@
+# Tier 1/2: product page navigation. Login plus one more real action, and a
+# success check on a UI element (the cart badge count) rather than just a URL.
+- id: task_03_saucedemo_add_to_cart
+  instruction: >
+    Go to https://www.saucedemo.com/, log in with username 'standard_user'
+    and password 'secret_sauce', add the first product on the page to the
+    cart, then report done.
+  success_check:
+    type: dom_text_contains
+    selector: ".shopping_cart_badge"
+    expected: "1"
+  max_steps: 10
+  timeout_seconds: 90

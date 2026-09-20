@@ -1,0 +1,16 @@
+# Tier 2: the full multi-step checkout flow, the exact example from the
+# plan's own YAML task format. Tests planning and state tracking across
+# several pages (inventory -> cart -> checkout step one -> step two -> complete).
+- id: task_04_saucedemo_checkout
+  instruction: >
+    Go to https://www.saucedemo.com/, log in with username 'standard_user'
+    and password 'secret_sauce', add the first product on the page to the
+    cart, go to the cart, check out with first name 'Test', last name
+    'User', and postal code '12345', then report done once the order is
+    complete.
+  success_check:
+    type: dom_text_contains
+    selector: ".complete-header"
+    expected: "Thank you for your order"
+  max_steps: 15
+  timeout_seconds: 120

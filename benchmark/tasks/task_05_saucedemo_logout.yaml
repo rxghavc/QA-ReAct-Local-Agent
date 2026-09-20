@@ -1,0 +1,12 @@
+# Tier 2: login/logout state tracking. Success here means the session state
+# actually flipped back, not just that the model claims it clicked logout.
+- id: task_05_saucedemo_logout
+  instruction: >
+    Go to https://www.saucedemo.com/, log in with username 'standard_user'
+    and password 'secret_sauce', then log out using the menu in the top
+    left corner, then report done.
+  success_check:
+    type: url_equals
+    expected: "https://www.saucedemo.com/"
+  max_steps: 10
+  timeout_seconds: 90

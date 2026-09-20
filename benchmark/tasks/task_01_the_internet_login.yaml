@@ -1,0 +1,11 @@
+# Tier 1: basic navigation + login. The same task exercised manually in
+# Milestones 3 and 4, now scored programmatically
+- id: task_01_the_internet_login
+  instruction: >
+    Go to https://the-internet.herokuapp.com/login, log in with username
+    'tomsmith' and password 'SuperSecretPassword!', then report done.
+  success_check:
+    type: url_contains
+    expected: "/secure"
+  max_steps: 8
+  timeout_seconds: 60

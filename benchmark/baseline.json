@@ -1,0 +1,8 @@
+{
+  "measured_at": "2026-09-18",
+  "num_runs": 3,
+  "min_pass_rate": 0.58,
+  "max_pass_rate": 0.92,
+  "mean_pass_rate": 0.75,
+  "source": "README's Agent runtime metrics table, three `--repeat 3` passes of the 12-task suite, measured after the report_done/report_blocked and ask_clarification fixes (PR #13). Re-measure and replace this file after any change expected to move the pass rate, not just when the gate starts flapping."
+}

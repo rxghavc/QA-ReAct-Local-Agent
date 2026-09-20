@@ -257,6 +257,24 @@ def run_suite_repeated(
     ]
 
 
+def per_run_pass_rates(runs: list[list[dict]]) -> list[float]:
+    """One pass rate per suite pass, skipped tasks excluded from the
+    denominator (see `summarise`'s own docstring for why). A pass with
+    every task skipped contributes no rate: an unmeasurable pass says
+    nothing about the agent, so it must not silently become a 0.0 that
+    then drags down a mean or trips a regression gate for the wrong
+    reason. Used by `summarise` for the min/max/mean line, and by
+    `benchmark/regression_gate.py` to compare a fresh measurement
+    against the baseline noise band.
+    """
+    rates = []
+    for records in runs:
+        scored = [r for r in records if r["skipped"] is None]
+        if scored:
+            rates.append(sum(1 for r in scored if r["passed"]) / len(scored))
+    return rates
+
+
 def summarise(runs: list[list[dict]]) -> str:
     """Human-readable summary of one or more suite passes.
 
@@ -266,7 +284,7 @@ def summarise(runs: list[list[dict]]) -> str:
     silently depressing the rate.
     """
     lines = []
-    per_run_rates = []
+    per_run_rates = per_run_pass_rates(runs)
     for index, records in enumerate(runs):
         scored = [r for r in records if r["skipped"] is None]
         skipped = [r for r in records if r["skipped"] is not None]
@@ -280,7 +298,6 @@ def summarise(runs: list[list[dict]]) -> str:
         if not scored:
             lines.append(f"{label}: NO RESULT, all {len(skipped)} tasks skipped")
         else:
-            per_run_rates.append(passed / len(scored))
             lines.append(
                 f"{label}: {passed}/{len(scored)} passed, "
                 f"{correct}/{len(judged)} self-reports correct, "

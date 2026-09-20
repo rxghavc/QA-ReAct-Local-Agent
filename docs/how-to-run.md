@@ -84,6 +84,22 @@ Checks all three benchmark sites are reachable first (skips a task rather
 than scoring an outage as a failure), and re-reads every task YAML at the
 start of each pass, so don't edit a task file mid-run.
 
+### 4. Check for a regression before merging a change
+
+```bash
+python -m benchmark.regression_gate --repeat 3
+```
+
+Runs the suite (minimum `--repeat 2`, same reasoning as above), then
+compares the mean pass rate against `benchmark/baseline.json`, a
+threshold set below this suite's own measured noise floor rather than a
+round number (see `docs/milestones/regression-gate.md`). Exits non-zero on
+a real regression, printing `GATE FAIL: ...`; exits 0 with `GATE PASS:
+...` otherwise, including on an ordinary noisy run. Not part of
+`.github/workflows/ci.yml`, since it needs a live local model and browser
+session the same way `runner`/`report` do; run it locally after a change
+you expect might move the pass rate, before opening or merging the PR.
+
 ## What's still CLI-only, by design
 
 - No live dashboard or run-trigger API. `agent/api.py` stays an

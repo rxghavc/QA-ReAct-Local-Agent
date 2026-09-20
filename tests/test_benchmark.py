@@ -421,6 +421,19 @@ def test_summarise_says_no_result_when_everything_was_skipped():
     assert "NO RESULT, all 1 tasks skipped" in runner.summarise([records])
 
 
+def test_per_run_pass_rates_excludes_skipped_and_all_skipped_runs():
+    """benchmark/regression_gate.py compares a fresh measurement's mean
+    against a baseline, so this must return one rate per pass that
+    actually measured something, not a 0.0 for a pass an outage voided."""
+    run_a = [
+        {"task_id": "t1", "passed": True, "skipped": None},
+        {"task_id": "t2", "passed": False, "skipped": None},
+    ]
+    run_b_all_skipped = [{"task_id": "t1", "passed": None, "skipped": "down"}]
+
+    assert runner.per_run_pass_rates([run_a, run_b_all_skipped]) == [0.5]
+
+
 def _log(tmp_path, name, **overrides):
     record = {
         "task_id": name,

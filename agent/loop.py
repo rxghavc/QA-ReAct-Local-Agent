@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import time
 
 from agent.ollama_client import PLANNER_MODEL, extract_tool_call, ollama_chat
 from agent.prompts import system_prompt
@@ -67,9 +68,14 @@ def run_task(task: str, max_steps: int = 15, use_routing: bool = True) -> dict:
     last_failed_error: str | None = None
     consecutive_failures = 0
     routing_checks = 0
+    model_seconds_total = 0.0
+    tool_seconds_total = 0.0
 
     for step in range(max_steps):
+        model_start = time.monotonic()
         message = ollama_chat(PLANNER_MODEL, messages, tools=TOOLS)
+        model_seconds = time.monotonic() - model_start
+        model_seconds_total += model_seconds
         messages.append(message)
         call = extract_tool_call(message, _TOOL_NAMES)
 
@@ -79,6 +85,7 @@ def run_task(task: str, max_steps: int = 15, use_routing: bool = True) -> dict:
                     "step": step,
                     "error": "no parseable tool call",
                     "content": message.get("content"),
+                    "model_seconds": round(model_seconds, 2),
                 }
             )
             return {
@@ -87,10 +94,18 @@ def run_task(task: str, max_steps: int = 15, use_routing: bool = True) -> dict:
                 "trace": trace,
                 "routing_enabled": use_routing,
                 "routing_checks": routing_checks,
+                "model_seconds_total": round(model_seconds_total, 1),
+                "tool_seconds_total": round(tool_seconds_total, 1),
             }
 
         if call["name"] in TERMINAL_TOOLS:
-            trace.append({"step": step, "tool_call": call})
+            trace.append(
+                {
+                    "step": step,
+                    "tool_call": call,
+                    "model_seconds": round(model_seconds, 2),
+                }
+            )
             outcome = TERMINAL_OUTCOMES[call["name"]]
             arguments = call["arguments"]
             summary = (
@@ -105,10 +120,23 @@ def run_task(task: str, max_steps: int = 15, use_routing: bool = True) -> dict:
                 "trace": trace,
                 "routing_enabled": use_routing,
                 "routing_checks": routing_checks,
+                "model_seconds_total": round(model_seconds_total, 1),
+                "tool_seconds_total": round(tool_seconds_total, 1),
             }
 
+        tool_start = time.monotonic()
         result = execute_tool(call)
-        trace.append({"step": step, "tool_call": call, "result": result})
+        tool_seconds = time.monotonic() - tool_start
+        tool_seconds_total += tool_seconds
+        trace.append(
+            {
+                "step": step,
+                "tool_call": call,
+                "result": result,
+                "model_seconds": round(model_seconds, 2),
+                "tool_seconds": round(tool_seconds, 2),
+            }
+        )
         messages.append({"role": "tool", "content": json.dumps(result)})
 
         if result.get("success") is False:
@@ -145,6 +173,8 @@ def run_task(task: str, max_steps: int = 15, use_routing: bool = True) -> dict:
         "trace": trace,
         "routing_enabled": use_routing,
         "routing_checks": routing_checks,
+        "model_seconds_total": round(model_seconds_total, 1),
+        "tool_seconds_total": round(tool_seconds_total, 1),
     }
 
 

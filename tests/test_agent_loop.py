@@ -145,6 +145,43 @@ def test_run_task_tracks_prompt_and_completion_tokens(monkeypatch):
     assert report_done_step["completion_tokens"] == 15
 
 
+def test_run_task_trims_old_tool_results_when_history_trim_is_set(monkeypatch):
+    """agent/history.py's trim_history is wired in, not just importable:
+    passing history_trim should actually shrink old tool-result payloads
+    in the messages sent to the model, the whole point of
+    docs/context-optimization-plan.md's first idea. Off by default
+    (other tests here never pass it and see full payloads throughout)."""
+    import copy
+
+    responses = [
+        _json_message("navigate", {"url": "https://x.test"}),
+        _json_message("click", {"text": "Login"}),
+        _json_message("report_done", {"summary": "done it"}),
+    ]
+    captured_messages = []
+
+    def fake_chat(_model, messages, **_kwargs):
+        captured_messages.append(copy.deepcopy(messages))
+        return responses.pop(0)
+
+    monkeypatch.setattr(loop, "ollama_chat", fake_chat)
+    monkeypatch.setattr(
+        loop,
+        "execute_tool",
+        lambda call: {"success": True, "title": "X", "headings": ["Big page dump"]},
+    )
+
+    loop.run_task("do a thing", max_steps=5, history_trim="full", history_keep_last=0)
+
+    # Snapshot taken right before the third (report_done) model call: both
+    # earlier tool results should already be trimmed to just `success`.
+    final_call_messages = captured_messages[-1]
+    tool_messages = [m for m in final_call_messages if m.get("role") == "tool"]
+    assert len(tool_messages) == 2
+    for message in tool_messages:
+        assert json.loads(message["content"]) == {"success": True}
+
+
 def test_run_task_reaches_report_blocked(monkeypatch):
     monkeypatch.setattr(
         loop,

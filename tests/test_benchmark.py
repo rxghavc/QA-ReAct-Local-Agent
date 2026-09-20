@@ -183,7 +183,7 @@ def test_run_and_score_writes_a_log_and_uses_the_final_browser_state(
     monkeypatch.setattr(
         runner,
         "run_task",
-        lambda instruction, max_steps, use_routing: {
+        lambda instruction, max_steps, use_routing, history_trim, history_keep_last: {
             "outcome": "done",
             "steps": 3,
             "trace": [],
@@ -215,12 +215,54 @@ def test_run_and_score_writes_a_log_and_uses_the_final_browser_state(
     assert json.loads(logged_files[0].read_text())["task_id"] == "task_test"
 
 
+def test_run_and_score_passes_history_trim_through_to_run_task_and_the_log(
+    monkeypatch, tmp_path
+):
+    """docs/context-optimization-plan.md's first idea needs to be
+    A/B-able through the same --repeat harness everything else uses, so
+    run_and_score must both forward the setting to run_task and record
+    it in the log for later inspection."""
+    monkeypatch.setattr(runner, "LOGS_DIR", tmp_path)
+    captured = {}
+
+    def fake_run_task(
+        instruction, max_steps, use_routing, history_trim, history_keep_last
+    ):
+        captured["history_trim"] = history_trim
+        captured["history_keep_last"] = history_keep_last
+        return {
+            "outcome": "done",
+            "steps": 1,
+            "trace": [],
+            "routing_enabled": use_routing,
+            "routing_checks": 0,
+        }
+
+    monkeypatch.setattr(runner, "run_task", fake_run_task)
+    monkeypatch.setattr(
+        runner,
+        "execute_tool",
+        lambda call: {"url": "https://x.test/secure", "title": "X", "headings": []},
+    )
+
+    task = {
+        "id": "task_test",
+        "instruction": "do a thing",
+        "success_check": {"type": "url_contains", "expected": "/secure"},
+    }
+    record = runner.run_and_score(task, history_trim="partial", history_keep_last=2)
+
+    assert captured == {"history_trim": "partial", "history_keep_last": 2}
+    assert record["history_trim"] == "partial"
+    assert record["history_keep_last"] == 2
+
+
 def test_run_and_score_flags_a_false_report_done(monkeypatch, tmp_path):
     monkeypatch.setattr(runner, "LOGS_DIR", tmp_path)
     monkeypatch.setattr(
         runner,
         "run_task",
-        lambda instruction, max_steps, use_routing: {
+        lambda instruction, max_steps, use_routing, history_trim, history_keep_last: {
             "outcome": "done",
             "steps": 2,
             "trace": [],
@@ -296,7 +338,7 @@ def test_run_suite_repeated_runs_every_task_once_per_pass(monkeypatch, tmp_path)
     monkeypatch.setattr(
         runner,
         "run_task",
-        lambda instruction, max_steps, use_routing: {
+        lambda instruction, max_steps, use_routing, history_trim, history_keep_last: {
             "outcome": "done",
             "steps": 1,
             "trace": [],

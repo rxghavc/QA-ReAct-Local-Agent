@@ -30,6 +30,15 @@ _CODE_FENCE_OPEN_RE = re.compile(r"^`{3,}[ \t]*(?:json)?[ \t]*\r?\n?", re.IGNORE
 def ollama_chat(
     model: str, messages: list[dict], tools: list[dict] | None = None
 ) -> dict:
+    """Returns the full /api/chat response, not just `message`.
+
+    `prompt_eval_count` (tokens in the resent prompt) and `eval_count`
+    (tokens generated this step) live alongside `message` at the top
+    level of Ollama's response rather than inside it, so a caller that
+    wants the token accounting from docs/ai-infra-and-observability.md's
+    item 3 needs the whole thing. agent/loop.py reads `response["message"]`
+    for the tool call and the two count fields for token totals.
+    """
     response = httpx.post(
         f"{OLLAMA_HOST}/api/chat",
         json={
@@ -41,7 +50,7 @@ def ollama_chat(
         timeout=120,
     )
     response.raise_for_status()
-    return response.json()["message"]
+    return response.json()
 
 
 def extract_tool_call(message: dict, tool_names: set[str]) -> dict | None:

@@ -42,6 +42,8 @@ EMPTY_REPORT: dict = {
     "avg_steps": None,
     "avg_model_seconds": None,
     "avg_tool_seconds": None,
+    "avg_prompt_tokens": None,
+    "avg_completion_tokens": None,
     "tasks": [],
     "failures": [],
 }
@@ -85,9 +87,10 @@ def build_report(logs_dir: Path | str = LOGS_DIR, last: int | None = None) -> di
     for record in scored:
         by_task[record["task_id"]].append(record)
 
-    # .get(..., 0) throughout: logs written before this timing breakdown
-    # existed have neither field, and should average in as 0 rather than
-    # break the report or silently drop from the denominator.
+    # .get(..., 0) throughout: logs written before the timing breakdown or
+    # the token counts existed have neither field, and should average in
+    # as 0 rather than break the report or silently drop from the
+    # denominator.
     tasks = []
     for task_id, attempts in sorted(by_task.items()):
         passes = sum(1 for r in attempts if r["passed"])
@@ -110,6 +113,16 @@ def build_report(logs_dir: Path | str = LOGS_DIR, last: int | None = None) -> di
                 ),
                 "avg_tool_seconds": round(
                     sum(r.get("tool_seconds_total", 0) for r in attempts)
+                    / len(attempts),
+                    1,
+                ),
+                "avg_prompt_tokens": round(
+                    sum(r.get("prompt_tokens_total", 0) for r in attempts)
+                    / len(attempts),
+                    1,
+                ),
+                "avg_completion_tokens": round(
+                    sum(r.get("completion_tokens_total", 0) for r in attempts)
                     / len(attempts),
                     1,
                 ),
@@ -152,6 +165,12 @@ def build_report(logs_dir: Path | str = LOGS_DIR, last: int | None = None) -> di
         ),
         "avg_tool_seconds": round(
             sum(r.get("tool_seconds_total", 0) for r in scored) / len(scored), 1
+        ),
+        "avg_prompt_tokens": round(
+            sum(r.get("prompt_tokens_total", 0) for r in scored) / len(scored), 1
+        ),
+        "avg_completion_tokens": round(
+            sum(r.get("completion_tokens_total", 0) for r in scored) / len(scored), 1
         ),
         "tasks": tasks,
         "failures": failures,
@@ -207,6 +226,10 @@ if __name__ == "__main__":
             f"Average time per task run: {report['avg_model_seconds']}s model "
             f"inference, {report['avg_tool_seconds']}s tool execution"
         )
+        print(
+            f"Average tokens per task run: {report['avg_prompt_tokens']} prompt, "
+            f"{report['avg_completion_tokens']} completion"
+        )
         print()
         for task in report["tasks"]:
             print(
@@ -214,7 +237,9 @@ if __name__ == "__main__":
                 f"({task['pass_rate']:.0%}), avg {task['avg_steps']} steps, "
                 f"avg {task['avg_wall_clock_seconds']}s "
                 f"({task['avg_model_seconds']}s model, "
-                f"{task['avg_tool_seconds']}s tool)"
+                f"{task['avg_tool_seconds']}s tool), "
+                f"avg {task['avg_prompt_tokens']} prompt / "
+                f"{task['avg_completion_tokens']} completion tokens"
             )
         repeated = [t for t in report["tasks"] if t["attempts"] > 1]
         if repeated and any(0 < t["pass_rate"] < 1 for t in repeated):

@@ -1,0 +1,14 @@
+# Tier 3: JS dialogs. This specifically tests the ordering rule called out
+# in the system prompt: handle_dialog has to be called BEFORE the action
+# that triggers the confirm(), since the dialog fires the instant it's clicked.
+- id: task_07_js_confirm_dialog
+  instruction: >
+    Go to https://the-internet.herokuapp.com/javascript_alerts, configure
+    the browser to accept the next JavaScript dialog, then click the
+    'Click for JS Confirm' button to trigger it, then report done.
+  success_check:
+    type: dom_text_contains
+    selector: "#result"
+    expected: "You clicked: Ok"
+  max_steps: 8
+  timeout_seconds: 60

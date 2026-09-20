@@ -10,6 +10,7 @@ exceptions that would crash the loop.
 from __future__ import annotations
 
 import base64
+import os
 
 from playwright.async_api import Browser, Dialog, Page, Playwright, async_playwright
 from playwright.async_api import Error as PlaywrightError
@@ -29,8 +30,14 @@ class BrowserSession:
         self._next_dialog_action: str = "dismiss"
 
     async def start(self) -> None:
+        # BROWSER_HEADLESS=false pops up a real, watchable Chromium window.
+        # Only meaningful running locally (`uvicorn browser.server:app`),
+        # not inside the Docker container, which has no display to show it
+        # on. This is what makes filming the demo (see docs/how-to-run.md)
+        # possible at all.
+        headless = os.environ.get("BROWSER_HEADLESS", "true").lower() != "false"
         self._playwright = await async_playwright().start()
-        self._browser = await self._playwright.chromium.launch()
+        self._browser = await self._playwright.chromium.launch(headless=headless)
         self._page = await self._browser.new_page()
         self._page.on("dialog", self._on_dialog)
 

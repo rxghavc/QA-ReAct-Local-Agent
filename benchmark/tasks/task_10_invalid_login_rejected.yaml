@@ -8,16 +8,21 @@
 # not. What is under test is that the app rejected the input and the agent
 # stayed to observe it, not saucedemo's exact copy.
 #
-# Note this is a browser check, not a report check: the rejection is a real
-# DOM fact, so there is no need to take the agent's word for it.
+# This is deliberately a report check, not a browser check, even though
+# the rejection is a real DOM fact saucedemo always produces for this
+# username. A dom_text_contains check here would pass 3/3 regardless of
+# whether the agent ever looked at the error, which tests nothing about
+# Tier 4's stated purpose (observation accuracy). report_contains still
+# can't be satisfied by a hallucinated success: it requires outcome ==
+# "done" *and* the exact substring in the agent's own summary, so the
+# agent has to have actually read and reported the error text.
 - id: task_10_invalid_login_rejected
   instruction: >
     Go to https://www.saucedemo.com/ and try to log in with username
     'locked_out_user' and password 'secret_sauce'. The login is expected to
     be rejected; confirm the site shows an error message and report done.
   success_check:
-    type: dom_text_contains
-    selector: 'h3[data-test="error"]'
+    type: report_contains
     expected: "locked out"
   max_steps: 8
   timeout_seconds: 60

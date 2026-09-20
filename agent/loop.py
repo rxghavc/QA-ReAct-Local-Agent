@@ -19,6 +19,7 @@ behavior, kept for the A/B comparison documented in that milestone.
 
 from __future__ import annotations
 
+import argparse
 import json
 
 from agent.ollama_client import PLANNER_MODEL, extract_tool_call, ollama_chat
@@ -148,11 +149,24 @@ def run_task(task: str, max_steps: int = 15, use_routing: bool = True) -> dict:
 
 
 if __name__ == "__main__":
-    # Hardcoded Tier-1 task: basic navigation + form login, checked manually
-    # by reading the trace below rather than a scorer (that's Milestone 5).
-    result = run_task(
-        "Go to https://the-internet.herokuapp.com/login, log in with "
-        "username 'tomsmith' and password 'SuperSecretPassword!', and "
-        "report done once you see the logged-in confirmation message."
+    parser = argparse.ArgumentParser(
+        description="Run a single ad-hoc task against the live agent, "
+        "outside the benchmark suite. Useful for filming the demo (see "
+        "docs/how-to-run.md) with a task other than the suite's own YAML."
     )
+    parser.add_argument(
+        "task",
+        nargs="?",
+        default=(
+            "Go to https://the-internet.herokuapp.com/login, log in with "
+            "username 'tomsmith' and password 'SuperSecretPassword!', and "
+            "report done once you see the logged-in confirmation message."
+        ),
+        help="plain-language instruction, including the target URL. "
+        "Defaults to the Milestone 3 hardcoded login task if omitted.",
+    )
+    parser.add_argument("--max-steps", type=int, default=15)
+    args = parser.parse_args()
+
+    result = run_task(args.task, max_steps=args.max_steps)
     print(json.dumps(result, indent=2, default=str))

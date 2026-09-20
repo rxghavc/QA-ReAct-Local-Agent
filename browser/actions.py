@@ -59,12 +59,37 @@ class BrowserSession:
         else:
             await dialog.dismiss()
 
+    async def _clickable_texts(self) -> list[str]:
+        """Every currently-actionable button/link's visible text.
+
+        Deliberately `get_by_role` (accessibility-tree-aware), not a raw
+        CSS tag locator. Found live on saucedemo while measuring payload
+        sizes for docs/context-optimization-plan.md's second idea: its
+        slide-out nav menu's links (`About`, `Logout`, `Reset App State`,
+        ...) sit under an `aria-hidden="true"` ancestor while closed, but
+        a `button, a, input[type=submit]` locator still returns their
+        text, and Playwright's own `:visible` pseudo-class does not
+        exclude them either (they have a real bounding box; they are
+        just translated off-screen). On a real saucedemo page after
+        login, that filled 7 of `MAX_SUMMARY_ITEMS`' 8 slots with
+        never-clickable-yet chrome, crowding out the actual button the
+        task needed (`Checkout`, `Continue`, `Finish`) out of the
+        summary entirely. `get_by_role("button")`/`get_by_role("link")`
+        respect `aria-hidden` (and ARIA roles generally) the way the
+        plan's own "pass a trimmed accessibility tree, not raw HTML"
+        design intent already called for, and verified live to return
+        only the real, currently-actionable buttons at every step of a
+        saucedemo checkout.
+        """
+        page = self.page
+        buttons = await page.get_by_role("button").all_inner_texts()
+        links = await page.get_by_role("link").all_inner_texts()
+        return buttons + links
+
     async def _summary(self) -> dict:
         page = self.page
         headings = await page.locator("h1, h2, h3").all_inner_texts()
-        clickable = await page.locator(
-            "button, a, input[type=submit]"
-        ).all_inner_texts()
+        clickable = await self._clickable_texts()
         return {
             "title": await page.title(),
             "url": page.url,

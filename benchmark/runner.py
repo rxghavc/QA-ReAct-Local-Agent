@@ -178,6 +178,8 @@ def _skipped_record(task: dict, reason: str, run_index: int) -> dict:
         "tool_seconds_total": 0.0,
         "prompt_tokens_total": 0,
         "completion_tokens_total": 0,
+        "history_trim": None,
+        "history_keep_last": None,
         "final_state": {},
         "trace": [],
     }
@@ -185,7 +187,13 @@ def _skipped_record(task: dict, reason: str, run_index: int) -> dict:
     return record
 
 
-def run_and_score(task: dict, use_routing: bool = True, run_index: int = 0) -> dict:
+def run_and_score(
+    task: dict,
+    use_routing: bool = True,
+    run_index: int = 0,
+    history_trim: str = "none",
+    history_keep_last: int = 4,
+) -> dict:
     skip_reason = task_skip_reason(task)
     if skip_reason is not None:
         return _skipped_record(task, skip_reason, run_index)
@@ -195,6 +203,8 @@ def run_and_score(task: dict, use_routing: bool = True, run_index: int = 0) -> d
         task["instruction"],
         max_steps=task.get("max_steps", DEFAULT_MAX_STEPS),
         use_routing=use_routing,
+        history_trim=history_trim,
+        history_keep_last=history_keep_last,
     )
     final_state = _fetch_final_state(task["success_check"])
     agent_report = {
@@ -221,6 +231,8 @@ def run_and_score(task: dict, use_routing: bool = True, run_index: int = 0) -> d
         "tool_seconds_total": loop_result.get("tool_seconds_total", 0.0),
         "prompt_tokens_total": loop_result.get("prompt_tokens_total", 0),
         "completion_tokens_total": loop_result.get("completion_tokens_total", 0),
+        "history_trim": history_trim,
+        "history_keep_last": history_keep_last,
         "final_state": final_state,
         "trace": loop_result["trace"],
     }
@@ -232,9 +244,17 @@ def run_suite(
     tasks_dir: Path | str = TASKS_DIR,
     use_routing: bool = True,
     run_index: int = 0,
+    history_trim: str = "none",
+    history_keep_last: int = 4,
 ) -> list[dict]:
     return [
-        run_and_score(task, use_routing=use_routing, run_index=run_index)
+        run_and_score(
+            task,
+            use_routing=use_routing,
+            run_index=run_index,
+            history_trim=history_trim,
+            history_keep_last=history_keep_last,
+        )
         for task in load_tasks(tasks_dir)
     ]
 
@@ -243,6 +263,8 @@ def run_suite_repeated(
     tasks_dir: Path | str = TASKS_DIR,
     use_routing: bool = True,
     repeat: int = 1,
+    history_trim: str = "none",
+    history_keep_last: int = 4,
 ) -> list[list[dict]]:
     """Run the whole suite `repeat` times, one list of records per pass.
 
@@ -252,7 +274,13 @@ def run_suite_repeated(
     spread stated alongside it.
     """
     return [
-        run_suite(tasks_dir, use_routing=use_routing, run_index=index)
+        run_suite(
+            tasks_dir,
+            use_routing=use_routing,
+            run_index=index,
+            history_trim=history_trim,
+            history_keep_last=history_keep_last,
+        )
         for index in range(repeat)
     ]
 
@@ -375,10 +403,32 @@ if __name__ == "__main__":
             "support a conclusion"
         ),
     )
+    parser.add_argument(
+        "--history-trim",
+        choices=["none", "partial", "full"],
+        default="none",
+        help=(
+            "collapse old tool-result payloads in message history to cut "
+            "prompt-token cost (see docs/context-optimization-plan.md), "
+            "off by default"
+        ),
+    )
+    parser.add_argument(
+        "--history-keep-last",
+        type=int,
+        default=4,
+        help="tool results this recent are never trimmed (default 4)",
+    )
     args = parser.parse_args()
     if args.repeat < 1:
         parser.error("--repeat must be at least 1")
 
-    runs = run_suite_repeated(use_routing=not args.no_routing, repeat=args.repeat)
+    runs = run_suite_repeated(
+        use_routing=not args.no_routing,
+        repeat=args.repeat,
+        history_trim=args.history_trim,
+        history_keep_last=args.history_keep_last,
+    )
     print(f"\nrouting: {'off' if args.no_routing else 'on'}")
+    print(f"history trim: {args.history_trim} (keep_last={args.history_keep_last})")
     print(summarise(runs))

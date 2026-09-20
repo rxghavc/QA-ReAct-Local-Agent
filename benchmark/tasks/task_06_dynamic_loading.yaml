@@ -1,0 +1,13 @@
+# Tier 3: dynamic loading. #finish exists in the DOM from page load but stays
+# hidden until a few seconds after Start is clicked, so this tests whether
+# the model actually waits for it instead of reading it (or giving up) early.
+- id: task_06_dynamic_loading
+  instruction: >
+    Go to https://the-internet.herokuapp.com/dynamic_loading/1, click the
+    Start button, wait for the loading to finish, then report done.
+  success_check:
+    type: dom_text_contains
+    selector: "#finish"
+    expected: "Hello World!"
+  max_steps: 8
+  timeout_seconds: 60

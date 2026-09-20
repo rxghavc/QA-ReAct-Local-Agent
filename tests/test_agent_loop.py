@@ -55,6 +55,53 @@ def test_run_task_stops_when_no_tool_call_parses(monkeypatch):
     assert result["steps"] == 1
 
 
+def test_run_task_injects_a_stuck_nudge_after_repeated_identical_failures(monkeypatch):
+    same_call = _json_message("click", {"selector": "#nope"})
+    monkeypatch.setattr(loop, "ollama_chat", lambda *a, **k: same_call)
+    monkeypatch.setattr(
+        loop, "execute_tool", lambda call: {"success": False, "error": "no match"}
+    )
+
+    result = loop.run_task("do a thing", max_steps=4)
+
+    nudges = [step for step in result["trace"] if step.get("stuck_nudge")]
+    # Fails twice in a row -> nudge and reset -> fails twice more -> nudge again.
+    assert len(nudges) == 2
+    assert nudges[0]["step"] == 1
+    assert nudges[1]["step"] == 3
+
+
+def test_run_task_does_not_nudge_on_a_single_failure_or_on_success(monkeypatch):
+    monkeypatch.setattr(
+        loop, "ollama_chat", lambda *a, **k: _json_message("click", {"text": "Login"})
+    )
+    monkeypatch.setattr(
+        loop, "execute_tool", lambda call: {"success": False, "error": "timeout"}
+    )
+
+    result = loop.run_task("do a thing", max_steps=1)
+
+    assert not any(step.get("stuck_nudge") for step in result["trace"])
+
+
+def test_run_task_does_not_nudge_when_failures_alternate_between_different_calls(
+    monkeypatch,
+):
+    calls = [
+        _json_message("click", {"selector": "#a"}),
+        _json_message("click", {"selector": "#b"}),
+        _json_message("click", {"selector": "#a"}),
+    ]
+    monkeypatch.setattr(loop, "ollama_chat", lambda *a, **k: calls.pop(0))
+    monkeypatch.setattr(
+        loop, "execute_tool", lambda call: {"success": False, "error": "no match"}
+    )
+
+    result = loop.run_task("do a thing", max_steps=3)
+
+    assert not any(step.get("stuck_nudge") for step in result["trace"])
+
+
 def test_run_task_hits_max_steps_without_a_terminal_call(monkeypatch):
     monkeypatch.setattr(
         loop, "ollama_chat", lambda *a, **k: _json_message("click", {"text": "Next"})

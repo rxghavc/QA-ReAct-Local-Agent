@@ -18,6 +18,8 @@ def run_task(task: str, max_steps: int = 15) -> dict:
         {"role": "user", "content": task},
     ]
     trace: list[dict] = []
+    previous_failed_call: dict | None = None
+    consecutive_failed_calls = 0
 
     for step in range(max_steps):
         message = ollama_chat(PLANNER_MODEL, messages, tools=TOOLS)
@@ -50,6 +52,31 @@ def run_task(task: str, max_steps: int = 15) -> dict:
         result = execute_tool(call)
         trace.append({"step": step, "tool_call": call, "result": result})
         messages.append({"role": "tool", "content": json.dumps(result)})
+
+        if result.get("success") is False and call == previous_failed_call:
+            consecutive_failed_calls += 1
+        elif result.get("success") is False:
+            previous_failed_call = call
+            consecutive_failed_calls = 1
+        else:
+            previous_failed_call = None
+            consecutive_failed_calls = 0
+
+        if consecutive_failed_calls == 2:
+            trace.append(
+                {
+                    "step": step,
+                    "stuck_nudge": True,
+                    "content": "The same tool call failed repeatedly. Try a different approach.",
+                }
+            )
+            messages.append(
+                {
+                    "role": "user",
+                    "content": "The same tool call failed repeatedly. Try a different approach.",
+                }
+            )
+            consecutive_failed_calls = 0
 
     return {"outcome": "max_steps", "steps": max_steps, "trace": trace}
 

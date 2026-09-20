@@ -46,6 +46,16 @@ async def test_click_by_text(session):
     assert result["success"] is True
 
 
+async def test_click_by_text_prefers_a_clickable_element_over_a_heading_with_the_same_word(
+    session,
+):
+    await session.navigate(FIXTURE_URL)
+    result = await session.click(text="Login")
+    assert result["success"] is True
+    clicked = await session.extract_text("#login-clicked")
+    assert clicked["text"] == "clicked"
+
+
 async def test_click_without_selector_or_text_fails(session):
     result = await session.click()
     assert result["success"] is False

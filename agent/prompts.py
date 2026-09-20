@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+
 def system_prompt(instruction: str, tools: list[dict]) -> str:
     """Build the planner's system prompt.
 

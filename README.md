@@ -8,7 +8,26 @@ The core idea is simple: a small local model, a real browser, a constrained set 
 
 ## Demo
 
-This project does not yet have a recorded demo video in the repo, but the practical run modes are already documented and ready to use. See [docs/guides/how-to-run.md](docs/guides/how-to-run.md) and [docs/guides/watching-the-benchmark-suite.md](docs/guides/watching-the-benchmark-suite.md) for the live browser workflow.
+Watch the agent take a plain-language task, drive a real browser, and verify the result:
+
+<video controls width="100%">
+	<source src="assets/QA-Testing-Agent-Demo.mp4" type="video/mp4">
+	Your browser does not support embedded video.
+</video>
+
+Can't see the video? [Open the demo video directly](assets/QA-Testing-Agent-Demo.mp4)
+
+The recording starts by launching the headed browser service and the local agent in two tiled terminal windows. The browser stays open for the full session while each task is pasted into the agent terminal and run against a real Chromium window.
+
+The three clips show:
+
+- **Checkout flow:** a longer SauceDemo workflow covering login, adding a product to the cart, checkout, and order completion. This demonstrates the agent planning across multiple pages and actions.
+- **Dynamic loading:** the agent starts a delayed page element, waits for it to finish loading, and only then reports completion instead of reading the page too early.
+- **Impossible login:** the agent receives invalid credentials and reports that it is blocked rather than hallucinating a successful login. This demonstrates the negative-test behavior built into the benchmark.
+
+**All three clips passed their respective benchmark checks**! 🎉
+
+**For the full task suite runbook, benchmark workflow, and headed-browser mode**, see [docs/guides/how-to-run.md](docs/guides/how-to-run.md).
 
 ## Quick start
 

@@ -7,6 +7,7 @@ services:
       - "8000:8000"
     environment:
       - OLLAMA_HOST=http://host.docker.internal:11434
+      - BROWSER_SERVICE_URL=http://browser:8001
     depends_on:
       - browser
 

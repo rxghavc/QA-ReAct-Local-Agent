@@ -11,7 +11,7 @@ The core idea is simple: a small local model, a real browser, a constrained set 
 Watch the agent take a plain-language task, drive a real browser, and verify the result:
 
 <video controls width="100%">
-	<source src="assets/QA-Testing-Agent-Demo.mp4" type="video/mp4">
+	<source src="https://github.com/user-attachments/assets/dda80a2b-681d-42d4-b85d-0389ba8e9dd0" type="video/mp4">
 	Your browser does not support embedded video.
 </video>
 

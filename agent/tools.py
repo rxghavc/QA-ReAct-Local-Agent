@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+
 import httpx
 
 BROWSER_SERVICE_URL = os.environ.get("BROWSER_SERVICE_URL", "http://localhost:8001")

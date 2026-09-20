@@ -1,8 +1,46 @@
-"""Unit tests for the structured-JSON fallback parser in agent/ollama_client.py."""
+"""Unit tests for agent/ollama_client.py: the structured-JSON fallback
+parser, and the /api/chat wrapper's return shape."""
 
-from agent.ollama_client import extract_tool_call
+from agent import ollama_client
+from agent.ollama_client import extract_tool_call, ollama_chat
 
 TOOL_NAMES = {"navigate", "click", "report_done"}
+
+
+class _FakeResponse:
+    def __init__(self, json_body: dict):
+        self._json_body = json_body
+
+    def raise_for_status(self) -> None:
+        pass
+
+    def json(self) -> dict:
+        return self._json_body
+
+
+def test_ollama_chat_returns_the_full_response_not_just_the_message(monkeypatch):
+    """prompt_eval_count and eval_count live alongside `message` at the
+    top level of Ollama's response, not inside it. agent/loop.py's token
+    accounting (docs/ai-infra-and-observability.md's item 3) needs both,
+    so ollama_chat must not throw them away the way it used to when it
+    returned only response.json()["message"]."""
+    monkeypatch.setattr(
+        ollama_client.httpx,
+        "post",
+        lambda *a, **k: _FakeResponse(
+            {
+                "message": {"content": "hi"},
+                "prompt_eval_count": 42,
+                "eval_count": 7,
+            }
+        ),
+    )
+
+    response = ollama_chat("qwen2.5-coder:14b", [{"role": "user", "content": "hi"}])
+
+    assert response["message"] == {"content": "hi"}
+    assert response["prompt_eval_count"] == 42
+    assert response["eval_count"] == 7
 
 
 def test_prefers_native_tool_calls():

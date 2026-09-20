@@ -8,8 +8,17 @@ import time
 from agent import loop
 
 
-def _json_message(name: str, arguments: dict) -> dict:
-    return {"content": json.dumps({"name": name, "arguments": arguments})}
+def _json_message(
+    name: str, arguments: dict, prompt_tokens: int = 0, completion_tokens: int = 0
+) -> dict:
+    """A mocked ollama_chat return value: the full /api/chat response
+    shape (message plus the two top-level token-count fields), not just
+    the message, matching what agent/loop.py now reads."""
+    return {
+        "message": {"content": json.dumps({"name": name, "arguments": arguments})},
+        "prompt_eval_count": prompt_tokens,
+        "eval_count": completion_tokens,
+    }
 
 
 def test_run_task_ends_with_needs_clarification_on_ask_clarification(monkeypatch):
@@ -99,6 +108,43 @@ def test_run_task_tracks_model_and_tool_time_separately(monkeypatch):
     assert "tool_seconds" not in report_done_step
 
 
+def test_run_task_tracks_prompt_and_completion_tokens(monkeypatch):
+    """Ollama reports prompt_eval_count/eval_count alongside message on
+    every /api/chat call, not inside it (agent/ollama_client.py's
+    ollama_chat now returns the whole response for exactly this reason).
+    Each step's own counts should show up in its trace entry, and the
+    running totals should be the sum across steps, not just the last one."""
+    responses = [
+        _json_message(
+            "navigate",
+            {"url": "https://x.test"},
+            prompt_tokens=100,
+            completion_tokens=20,
+        ),
+        _json_message(
+            "report_done",
+            {"summary": "done it"},
+            prompt_tokens=150,
+            completion_tokens=15,
+        ),
+    ]
+    monkeypatch.setattr(loop, "ollama_chat", lambda *a, **k: responses.pop(0))
+    monkeypatch.setattr(
+        loop, "execute_tool", lambda call: {"success": True, "title": "X"}
+    )
+
+    result = loop.run_task("do a thing", max_steps=5)
+
+    assert result["prompt_tokens_total"] == 250
+    assert result["completion_tokens_total"] == 35
+
+    navigate_step, report_done_step = result["trace"]
+    assert navigate_step["prompt_tokens"] == 100
+    assert navigate_step["completion_tokens"] == 20
+    assert report_done_step["prompt_tokens"] == 150
+    assert report_done_step["completion_tokens"] == 15
+
+
 def test_run_task_reaches_report_blocked(monkeypatch):
     monkeypatch.setattr(
         loop,
@@ -115,7 +161,9 @@ def test_run_task_reaches_report_blocked(monkeypatch):
 
 def test_run_task_stops_when_no_tool_call_parses(monkeypatch):
     monkeypatch.setattr(
-        loop, "ollama_chat", lambda *a, **k: {"content": "I'm not sure what to do."}
+        loop,
+        "ollama_chat",
+        lambda *a, **k: {"message": {"content": "I'm not sure what to do."}},
     )
     monkeypatch.setattr(loop, "execute_tool", lambda call: {"success": False})
 

@@ -483,6 +483,30 @@ def test_build_report_defaults_missing_timing_fields_to_zero(tmp_path):
     assert result["avg_tool_seconds"] == 0.0
 
 
+def test_build_report_aggregates_prompt_and_completion_tokens(tmp_path):
+    _log(tmp_path, "t1", prompt_tokens_total=1000, completion_tokens_total=100)
+    _log(tmp_path, "t2", prompt_tokens_total=2000, completion_tokens_total=200)
+
+    result = report.build_report(tmp_path)
+
+    assert result["avg_prompt_tokens"] == 1500.0
+    assert result["avg_completion_tokens"] == 150.0
+    (t1,) = [t for t in result["tasks"] if t["task_id"] == "t1"]
+    assert t1["avg_prompt_tokens"] == 1000.0
+    assert t1["avg_completion_tokens"] == 100.0
+
+
+def test_build_report_defaults_missing_token_fields_to_zero(tmp_path):
+    """Same backward-compatibility rule as the timing fields: logs written
+    before token accounting existed have neither field."""
+    _log(tmp_path, "t1", passed=True)
+
+    result = report.build_report(tmp_path)
+
+    assert result["avg_prompt_tokens"] == 0.0
+    assert result["avg_completion_tokens"] == 0.0
+
+
 def test_build_report_excludes_skipped_runs_from_the_pass_rate(tmp_path):
     """A task skipped for an unreachable site was never measured, so it
     shrinks the denominator instead of counting as a failure. Counting it
@@ -603,6 +627,8 @@ def test_build_report_with_no_logs(tmp_path):
         "avg_steps": None,
         "avg_model_seconds": None,
         "avg_tool_seconds": None,
+        "avg_prompt_tokens": None,
+        "avg_completion_tokens": None,
         "tasks": [],
         "failures": [],
     }

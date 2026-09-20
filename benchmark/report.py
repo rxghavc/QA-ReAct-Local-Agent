@@ -38,6 +38,8 @@ EMPTY_REPORT: dict = {
     "pass_rate": None,
     "self_report_accuracy": None,
     "avg_steps": None,
+    "avg_model_seconds": None,
+    "avg_tool_seconds": None,
     "tasks": [],
 }
 
@@ -80,6 +82,9 @@ def build_report(logs_dir: Path | str = LOGS_DIR, last: int | None = None) -> di
     for record in scored:
         by_task[record["task_id"]].append(record)
 
+    # .get(..., 0) throughout: logs written before this timing breakdown
+    # existed have neither field, and should average in as 0 rather than
+    # break the report or silently drop from the denominator.
     tasks = []
     for task_id, attempts in sorted(by_task.items()):
         passes = sum(1 for r in attempts if r["passed"])
@@ -94,6 +99,16 @@ def build_report(logs_dir: Path | str = LOGS_DIR, last: int | None = None) -> di
                 ),
                 "avg_wall_clock_seconds": round(
                     sum(r["wall_clock_seconds"] for r in attempts) / len(attempts), 1
+                ),
+                "avg_model_seconds": round(
+                    sum(r.get("model_seconds_total", 0) for r in attempts)
+                    / len(attempts),
+                    1,
+                ),
+                "avg_tool_seconds": round(
+                    sum(r.get("tool_seconds_total", 0) for r in attempts)
+                    / len(attempts),
+                    1,
                 ),
             }
         )
@@ -117,6 +132,12 @@ def build_report(logs_dir: Path | str = LOGS_DIR, last: int | None = None) -> di
         "pass_rate": round(passed / len(scored), 2),
         "self_report_accuracy": (round(correct / len(judged), 2) if judged else None),
         "avg_steps": round(sum(r["steps"] for r in scored) / len(scored), 1),
+        "avg_model_seconds": round(
+            sum(r.get("model_seconds_total", 0) for r in scored) / len(scored), 1
+        ),
+        "avg_tool_seconds": round(
+            sum(r.get("tool_seconds_total", 0) for r in scored) / len(scored), 1
+        ),
         "tasks": tasks,
     }
 
@@ -166,12 +187,18 @@ if __name__ == "__main__":
         else:
             print(f"Self-report accuracy: {report['self_report_accuracy']:.0%}")
         print(f"Average steps per task run: {report['avg_steps']}")
+        print(
+            f"Average time per task run: {report['avg_model_seconds']}s model "
+            f"inference, {report['avg_tool_seconds']}s tool execution"
+        )
         print()
         for task in report["tasks"]:
             print(
                 f"  {task['task_id']}: {task['passes']}/{task['attempts']} "
                 f"({task['pass_rate']:.0%}), avg {task['avg_steps']} steps, "
-                f"avg {task['avg_wall_clock_seconds']}s"
+                f"avg {task['avg_wall_clock_seconds']}s "
+                f"({task['avg_model_seconds']}s model, "
+                f"{task['avg_tool_seconds']}s tool)"
             )
         repeated = [t for t in report["tasks"] if t["attempts"] > 1]
         if repeated and any(0 < t["pass_rate"] < 1 for t in repeated):

@@ -458,6 +458,31 @@ def test_build_report_aggregates_logs(tmp_path):
     assert result["avg_steps"] == 9.5
 
 
+def test_build_report_aggregates_model_and_tool_time(tmp_path):
+    _log(tmp_path, "t1", model_seconds_total=10.0, tool_seconds_total=2.0)
+    _log(tmp_path, "t2", model_seconds_total=20.0, tool_seconds_total=4.0)
+
+    result = report.build_report(tmp_path)
+
+    assert result["avg_model_seconds"] == 15.0
+    assert result["avg_tool_seconds"] == 3.0
+    (t1,) = [t for t in result["tasks"] if t["task_id"] == "t1"]
+    assert t1["avg_model_seconds"] == 10.0
+    assert t1["avg_tool_seconds"] == 2.0
+
+
+def test_build_report_defaults_missing_timing_fields_to_zero(tmp_path):
+    """Logs written before this timing breakdown existed have neither
+    field. They should average in as 0, not crash the report or get
+    silently dropped."""
+    _log(tmp_path, "t1", passed=True)
+
+    result = report.build_report(tmp_path)
+
+    assert result["avg_model_seconds"] == 0.0
+    assert result["avg_tool_seconds"] == 0.0
+
+
 def test_build_report_excludes_skipped_runs_from_the_pass_rate(tmp_path):
     """A task skipped for an unreachable site was never measured, so it
     shrinks the denominator instead of counting as a failure. Counting it
@@ -576,5 +601,7 @@ def test_build_report_with_no_logs(tmp_path):
         "pass_rate": None,
         "self_report_accuracy": None,
         "avg_steps": None,
+        "avg_model_seconds": None,
+        "avg_tool_seconds": None,
         "tasks": [],
     }

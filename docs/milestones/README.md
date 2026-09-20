@@ -1,6 +1,6 @@
 # Milestone write-ups
 
-Here are full, detailed accounts of each completed build milestone (and the fix work between them): what was built, why, how it was verified (with real commands and real output), and what went wrong along the way.
+Full, detailed accounts of each completed build milestone (and the fix work between them): what was built, why, how it was verified (with real commands and real output), and what went wrong along the way. Written to be readable by someone with no prior context on this project, not just as a diff summary. `CLAUDE.md`'s Progress Log has the terse status version of the same history, kept there for quick reference rather than repeated here; these are the long version, for when you want the full "what actually happened and why" for a specific milestone or fix.
 
 - [01: Tool-calling spike](01-tool-calling-spike.md), does the local planner model actually support tool calling, and how that was tested before writing any real agent code.
 - [02: Browser tool layer](02-browser-tool-layer.md), building and proving the Playwright + FastAPI browser control layer, independent of any model.
@@ -12,3 +12,4 @@ Here are full, detailed accounts of each completed build milestone (and the fix 
 - [08: Tier 4, negative tests and the first metrics report](08-tier4-and-negative-tests.md), the suite reaches twelve tasks and four tiers, and the negative tier scores 0/6: the agent describes failure accurately while signalling success, never notices an ambiguous instruction, and never once calls the tool added for it.
 - [Benchmark trustworthiness: two fixes before Milestone 8](benchmark-trustworthiness.md), a live-site outage scoring as an agent failure, real run-to-run variance, and a filename-collision bug that would have silently corrupted repeated measurements.
 - [Fixes before Milestone 9: report_done semantics and a real ask_clarification trigger](report-semantics-and-clarification.md), why an abstract prompt rule did nothing and a concrete worked example fixed it, and the first-ever (if unreliable) `ask_clarification` call after 36 runs of silence.
+- [Observability, part 1: per-step timing breakdown](observability-per-step-timing.md), timing model inference and tool execution separately for the first time, and the immediate finding that model inference dominates by roughly 35x.

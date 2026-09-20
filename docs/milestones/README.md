@@ -8,3 +8,4 @@ Here are full, detailed accounts of each completed build milestone: what was bui
 - [04: Dockerize](04-dockerize.md), getting the agent and browser containers to actually talk to each other, and the one-line networking bug that had to be found first.
 - [05: Task suite and scorer](05-task-suite-scorer.md), building an actual benchmark with a programmatic scorer instead of a human reading a trace, and the two real failures its first run caught.
 - [06: Self-correction and dynamic elements](06-self-correction-dynamic-elements.md), why the originally-planned retry mechanism didn't match the real failures, the prompt fix that did, and the brand-new browser-layer bug that same fix accidentally caused.
+- [07: 3b model routing](07-model-routing.md), how a 3b classifier passed its tests, shipped, and then got every live activation wrong, why the obvious fix was worse, and what five measured prompt strategies said about using a model this small as a judge at all.

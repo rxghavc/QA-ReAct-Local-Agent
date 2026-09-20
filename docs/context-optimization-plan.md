@@ -1,11 +1,16 @@
 # Context and observation-payload optimization plan
 
-This is a planning doc, not a milestone write-up, the same status
-`docs/ai-infra-and-observability.md` had before any of its four parts
-were built: nothing here is implemented yet. It scopes the next
-optimization work, prioritized and sequenced, with the actual
-measurement plan for each idea rather than an assumption that any of
-them helps.
+This was a planning doc; ideas 1 and 2 below are now built and measured.
+**See `docs/milestones/context-optimization.md` for the outcome, kept
+here for the record since the actual finding corrects a real assumption
+in this plan, not just confirms it:** idea 2 (the observation payload)
+turned up a genuine bug (saucedemo's hidden nav menu crowding out real
+buttons) and ships as the new default; idea 1 (history trimming) ships
+too, but delivered far smaller token savings than predicted below, once
+a live isolation test showed the ~10.5x multiplier this plan is built
+around is mostly the constant tool-schema/system-prompt prefix being
+re-processed every call, not the growing conversation history. Idea 3
+(quantization) is unaffected and still not started.
 
 ## Why this, why now
 
